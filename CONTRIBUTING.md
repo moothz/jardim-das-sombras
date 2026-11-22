@@ -69,6 +69,17 @@ Melhor ainda: transforme o número solto em constante exposta na rota (vira caso
 
 **4. Conferir e decidir (quem faz o deploy):** `docker exec ravena-ai node scripts/economy-annotate.js --listar` (ou o cartão no admin) mostra as anotações com um id. Só as **possíveis mudanças** (marca âmbar, detectadas nos dados) precisam de decisão: `--confirmar <id> ["texto com o porquê"]` ou `--descartar <id>`.
 
+### 2.6. Coordenação entre contribuidores: GitHub Project + ai-memory (OBRIGATÓRIO)
+Mais de uma pessoa (e mais de um agente) trabalham em paralelo nos repos `ravena-ai`, `waifuletes` e `jardim-das-sombras`. Para evitar retrabalho e conflitos, duas ferramentas trabalham juntas:
+- **GitHub Project [`ravena-ai cabritos`](https://github.com/users/moothz/projects/2)** (`--owner moothz`, projeto `#2`): fonte de verdade sobre *quem está fazendo o quê agora* (`Backlog` / `Ready` → `In progress` → `In review` → `Done`).
+- **ai-memory compartilhado:** fonte de verdade sobre *o que já foi feito, decidido ou aprendido* (resumos de sessão, decisões arquiteturais e pegadinhas). Não substitui dono nem estado de tarefa.
+
+**Regra obrigatória antes e durante qualquer tarefa:**
+1. **Antes de começar:** confira o board (`gh project item-list 2 --owner moothz`) para ver se já há issue/draft ou alguém no tema, e consulte o **ai-memory** sobre o assunto. Se já houver outra pessoa atribuída ou o item estiver em `In progress`, alinhe antes de mexer.
+2. **Ao começar:** garanta que há uma issue no repo correspondente (converta o draft em issue se necessário, ou crie uma), atribua o responsável (`assignee`) e mova o item para **`In progress`**.
+3. **Ao abrir o PR:** referencie a issue com `Closes #N` na descrição do PR e mova o item para **`In review`** (ao mergear, o item vai para **`Done`**).
+4. **Achados soltos e ideias:** bugs vistos de passagem, melhorias ou endurecimentos fora do escopo atual entram como issue/draft em **`Backlog`** ou **`Ready`**, em vez de se perderem em mensagens.
+
 ---
 
 ## 🚀 3. Como Configurar o Ambiente de Desenvolvimento
