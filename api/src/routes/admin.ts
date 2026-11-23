@@ -204,13 +204,29 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
             const realId = resolveRealItemId(it.itemId);
             const amount = Number(it.amount) || 1;
 
-            // Subtrai do remetente
-            const updatedSender = await tx.inventory.update({
-              where: { playerId_itemId: { playerId: fromUserId, itemId: realId } },
+            // Subtrai do remetente com guarda atômica contra saldo negativo
+            const updateSenderRes = await tx.inventory.updateMany({
+              where: {
+                playerId: fromUserId,
+                itemId: realId,
+                quantity: { gte: amount },
+              },
               data: { quantity: { decrement: amount } },
             });
 
-            if (updatedSender.quantity <= 0) {
+            if (updateSenderRes.count === 0) {
+              throw new DomainError(
+                `Item ${it.itemId} insuficiente para ${fromUserId}. Operação cancelada devido a concorrência.`,
+                'INSUFFICIENT_ITEMS',
+                400
+              );
+            }
+
+            const currentSender = await tx.inventory.findUnique({
+              where: { playerId_itemId: { playerId: fromUserId, itemId: realId } },
+            });
+
+            if (currentSender && currentSender.quantity <= 0) {
               await tx.inventory.delete({
                 where: { playerId_itemId: { playerId: fromUserId, itemId: realId } },
               });
@@ -226,7 +242,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
             transferred.push({
               itemId: realId,
               amount,
-              senderRemaining: Math.max(0, updatedSender.quantity),
+              senderRemaining: Math.max(0, currentSender?.quantity || 0),
               receiverTotal: updatedReceiver.quantity,
             });
           }

@@ -2284,15 +2284,20 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
       }).join('');
     }
 
+    let isPlanting = false;
     async function plantSeedFromInventory(plantId, plantName, requestedQty = 1) {
+      if (isPlanting) return;
+      isPlanting = true;
       const freeSlots = currentSlots.filter(s => s.stage === 'empty' || !s.plantId || s.stage === 'withered');
       if (freeSlots.length === 0) {
+        isPlanting = false;
         return showToast('⚠️ Todos os 9 canteiros estão ocupados! Colha plantas prontas primeiro.', true);
       }
 
       const inv = inventoryItems.find(i => (i.type === 'seed' || !i.itemId.startsWith('crop_')) && (i.baseId === plantId || i.itemId === plantId));
       const availableSeeds = inv ? inv.quantity : 0;
       if (availableSeeds <= 0) {
+        isPlanting = false;
         return showToast('⚠️ Você não possui sementes de ' + plantName + ' na mochila!', true);
       }
 
@@ -2345,6 +2350,8 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
         showToast('🌱 ' + actuallyPlanted + 'x ' + plantName + ' plantada(s) com sucesso!', false);
       } catch (err) {
         showToast(err.message, true);
+      } finally {
+        isPlanting = false;
       }
     }
 
@@ -3161,7 +3168,10 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
       \`).join('');
     }
 
+    let isSelling = false;
     async function sellItem(itemId, qty, totalEarned, name) {
+      if (isSelling) return;
+      isSelling = true;
       try {
         const res = await fetch('/farm/' + USER_ID + '/sell', {
           method: 'POST',
@@ -3185,10 +3195,14 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
         showToast('🌱 Vendeu ' + qty + 'x ' + name + ' por +' + data.totalCoinsEarned.toLocaleString('pt-BR') + ' Ptl!');
       } catch (err) {
         showToast(err.message, true);
+      } finally {
+        isSelling = false;
       }
     }
 
     async function sellAllCrops() {
+      if (isSelling) return;
+      isSelling = true;
       try {
         const res = await fetch('/farm/' + USER_ID + '/sell', {
           method: 'POST',
@@ -3213,6 +3227,8 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
         showToast('🌱 Todas as colheitas vendidas por +' + data.totalCoinsEarned.toLocaleString('pt-BR') + ' Ptl!');
       } catch (err) {
         showToast(err.message, true);
+      } finally {
+        isSelling = false;
       }
     }
 

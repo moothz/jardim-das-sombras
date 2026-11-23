@@ -253,6 +253,7 @@ describe('Consumables & Multipliers Test Suite', () => {
           findMany: vi.fn().mockResolvedValue([
             { itemId: 'crop_02_tomb_shroom', quantity: 2 },
           ]),
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
           update: vi.fn().mockResolvedValue({}),
         },
         $transaction: vi.fn().mockImplementation(async (cb) => cb(mockPrisma)),

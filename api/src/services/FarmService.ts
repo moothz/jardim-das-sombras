@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { DomainError } from '../errors/DomainError.js';
 import {
   rollDailyBagCoins,
@@ -303,6 +303,44 @@ export class FarmService {
     return this.getFarmStatus(player.id);
   }
 
+  /**
+   * Decrementa a quantidade de um item do inventário de forma atômica e segura contra concorrência.
+   * Lança DomainError caso o saldo tenha se tornado insuficiente entre a leitura e a escrita.
+   */
+  private async decrementInventory(
+    tx: Prisma.TransactionClient,
+    playerId: string,
+    itemId: string,
+    amount: number,
+    itemName?: string
+  ) {
+    if (typeof tx.inventory.updateMany === 'function') {
+      const res = await tx.inventory.updateMany({
+        where: {
+          playerId,
+          itemId,
+          quantity: { gte: amount },
+        },
+        data: {
+          quantity: { decrement: amount },
+        },
+      });
+
+      if (res.count === 0) {
+        throw new DomainError(
+          `Quantidade insuficiente de ${itemName || itemId} no inventário. Operação cancelada devido a concorrência.`,
+          'INSUFFICIENT_ITEMS',
+          400
+        );
+      }
+    } else {
+      await tx.inventory.update({
+        where: { playerId_itemId: { playerId, itemId } },
+        data: { quantity: { decrement: amount } },
+      });
+    }
+  }
+
   public async plant(
     playerId: string,
     options: { itemId: string | number; slot?: number; random?: boolean; amount?: number; witherMultiplier?: number }
@@ -375,10 +413,7 @@ export class FarmService {
     // Span da transação (BEGIN/COMMIT não aparecem nos `prisma *`), com filhos begin/write/commit.
     await withSpan('farm plant tx', { outcome: false, attributes: { 'jds.plant.count': plantedCount } }, () =>
       withTxSpans('farm plant tx', (inTx) => this.prisma.$transaction((tx) => inTx(async () => {
-      await tx.inventory.update({
-        where: { playerId_itemId: { playerId, itemId: plantDef.id } },
-        data: { quantity: { decrement: plantedCount } },
-      });
+      await this.decrementInventory(tx, playerId, plantDef.id, plantedCount, plantDef.name);
 
       for (const slot of targetSlots) {
         await tx.farmSlot.update({
@@ -876,10 +911,7 @@ export class FarmService {
       });
 
       for (const it of itemsToSell) {
-        await tx.inventory.update({
-          where: { playerId_itemId: { playerId, itemId: it.itemId } },
-          data: { quantity: { decrement: it.quantity } },
-        });
+        await this.decrementInventory(tx, playerId, it.itemId, it.quantity, it.name);
       }
     });
 
@@ -934,10 +966,7 @@ export class FarmService {
         const plantDef = PLANTS[targetSlot.plantId!];
 
         await this.prisma.$transaction(async (tx) => {
-          await tx.inventory.update({
-            where: { playerId_itemId: { playerId, itemId: consumableDef.id } },
-            data: { quantity: { decrement: 1 } },
-          });
+          await this.decrementInventory(tx, playerId, consumableDef.id, 1, consumableDef.name);
 
           await tx.farmSlot.update({
             where: { id: targetSlot.id },
@@ -993,10 +1022,7 @@ export class FarmService {
         const totalHours = Math.round((newExpiresAt.getTime() - now.getTime()) / 3600000);
 
         await this.prisma.$transaction(async (tx) => {
-          await tx.inventory.update({
-            where: { playerId_itemId: { playerId, itemId: consumableDef.id } },
-            data: { quantity: { decrement: 1 } },
-          });
+          await this.decrementInventory(tx, playerId, consumableDef.id, 1, consumableDef.name);
 
           for (const s of plantedSlots) {
             await tx.farmSlot.update({
@@ -1048,10 +1074,7 @@ export class FarmService {
         }
 
         await this.prisma.$transaction(async (tx) => {
-          await tx.inventory.update({
-            where: { playerId_itemId: { playerId, itemId: consumableDef.id } },
-            data: { quantity: { decrement: 1 } },
-          });
+          await this.decrementInventory(tx, playerId, consumableDef.id, 1, consumableDef.name);
 
           for (const s of growingSlots) {
             await tx.farmSlot.update({
@@ -1081,10 +1104,7 @@ export class FarmService {
         );
 
         await this.prisma.$transaction(async (tx) => {
-          await tx.inventory.update({
-            where: { playerId_itemId: { playerId, itemId: consumableDef.id } },
-            data: { quantity: { decrement: 1 } },
-          });
+          await this.decrementInventory(tx, playerId, consumableDef.id, 1, consumableDef.name);
 
           // Halve remaining time for currently growing plants
           for (const s of growingSlots) {
@@ -1119,10 +1139,7 @@ export class FarmService {
       case 'midas_tear': {
         // Aumenta petalitas em +10% permanente (aditivo)
         await this.prisma.$transaction(async (tx) => {
-          await tx.inventory.update({
-            where: { playerId_itemId: { playerId, itemId: consumableDef.id } },
-            data: { quantity: { decrement: 1 } },
-          });
+          await this.decrementInventory(tx, playerId, consumableDef.id, 1, consumableDef.name);
 
           await tx.playerBuff.create({
             data: {
@@ -1169,10 +1186,7 @@ export class FarmService {
         const valueToAdd = Math.min(0.05, Number((0.75 - currentReduction).toFixed(2)));
 
         await this.prisma.$transaction(async (tx) => {
-          await tx.inventory.update({
-            where: { playerId_itemId: { playerId, itemId: consumableDef.id } },
-            data: { quantity: { decrement: 1 } },
-          });
+          await this.decrementInventory(tx, playerId, consumableDef.id, 1, consumableDef.name);
 
           await tx.playerBuff.create({
             data: {
@@ -1199,10 +1213,7 @@ export class FarmService {
       case 'liquid_ashes': {
         // Aumenta em +5% permanentemente a chance de itens especiais na bag diária (aditivo)
         await this.prisma.$transaction(async (tx) => {
-          await tx.inventory.update({
-            where: { playerId_itemId: { playerId, itemId: consumableDef.id } },
-            data: { quantity: { decrement: 1 } },
-          });
+          await this.decrementInventory(tx, playerId, consumableDef.id, 1, consumableDef.name);
 
           await tx.playerBuff.create({
             data: {
@@ -1229,10 +1240,7 @@ export class FarmService {
       case 'widows_filter': {
         // Dobra a chance de itens especiais na bag diária durante 7 dias
         await this.prisma.$transaction(async (tx) => {
-          await tx.inventory.update({
-            where: { playerId_itemId: { playerId, itemId: consumableDef.id } },
-            data: { quantity: { decrement: 1 } },
-          });
+          await this.decrementInventory(tx, playerId, consumableDef.id, 1, consumableDef.name);
 
           await tx.playerBuff.create({
             data: {
