@@ -151,6 +151,8 @@ O microsserviço disponibiliza mais de 30 endpoints organizados por domínio (Cu
 | **Painel da Economia** | `GET /internal/economy/summary`, `GET /internal/economy/players`, `GET /internal/economy/params` | API_KEY (Fail-closed) |
 | **Super Admin** | `GET /super-admin`, `POST /super-admin/api/plants`, `POST /super-admin/api/reload` | Super Admin Password |
 
+Em `POST /farm/:user_id/sell`, `quantity` é um número inteiro maior que zero (omitido vale 1).
+
 📖 **Acesse a documentação completa com todos os parâmetros, esquemas JSON e exemplos em:**
 👉 **[`docs/API.md`](docs/API.md)**
 

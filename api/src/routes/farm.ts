@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import { FastifyPluginAsync, FastifyReply } from 'fastify';
-import { FarmService } from '../services/FarmService.js';
+import { FarmService, parseSellQuantity } from '../services/FarmService.js';
 import { CanvasRendererService } from '../services/CanvasRendererService.js';
 import { requireAuth } from '../plugins/auth.js';
 import { config } from '../config.js';
@@ -681,7 +681,7 @@ export const farmRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /farm/:user_id/sell
   fastify.post<{
     Params: { user_id: string };
-    Body: { itemId?: string | number; quantity?: number; all?: boolean };
+    Body: { itemId?: string | number; quantity?: unknown; all?: boolean };
   }>(
     '/farm/:user_id/sell',
     { preHandler: [requireAuth] },
@@ -690,7 +690,8 @@ export const farmRoutes: FastifyPluginAsync = async (fastify) => {
         'farm sell',
         { attributes: { 'jds.user.id': userIdAttr(req.params.user_id), 'jds.sell.all': req.body?.all === true } },
         async () => {
-          const r = await farmService.sell(req.params.user_id, req.body || {});
+          const { itemId, quantity, all } = req.body || {};
+          const r = await farmService.sell(req.params.user_id, { itemId, quantity: parseSellQuantity(quantity), all });
           setAttrs({
             'jds.sell.items': r.soldItems.reduce((n: number, it: { quantity: number }) => n + it.quantity, 0),
             'jds.sell.coins': r.totalCoinsEarned,

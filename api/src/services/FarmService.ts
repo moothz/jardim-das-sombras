@@ -18,6 +18,14 @@ import { CanvasRendererService, isInsidePlantation } from './CanvasRendererServi
 import { BotNotifier } from './BotNotifier.js';
 import { withSpan, withTxSpans } from '../telemetry.js';
 
+export function parseSellQuantity(value: unknown): number {
+  if (value === undefined) return 1;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+    throw new DomainError('A quantidade para vender deve ser um número inteiro maior que zero.', 'INVALID_QUANTITY', 400);
+  }
+  return value;
+}
+
 export interface HarvestResultItem {
   plantId: string;
   name: string;
@@ -841,6 +849,7 @@ export class FarmService {
   }
 
   public async sell(playerId: string, options: { itemId?: string | number; quantity?: number; all?: boolean }) {
+    const requestedQuantity = parseSellQuantity(options.quantity);
     const player = await this.getOrCreatePlayer(playerId);
     const userInventory = await this.prisma.inventory.findMany({
       where: { playerId },
@@ -884,7 +893,7 @@ export class FarmService {
         throw new DomainError(`Você não possui colheitas de ${plant ? plant.name : decor!.name} para vender! (Sementes só podem ser plantadas, não vendidas)`, 'INSUFFICIENT_SEEDS', 400);
       }
 
-      const qty = Math.min(invItem.quantity, options.quantity || 1);
+      const qty = Math.min(invItem.quantity, requestedQuantity);
       const buffs = plant ? await this.getFarmBuffs(playerId) : null;
       const unitPrice = plant ? Math.round(plant.sellPrice * buffs!.effectiveCoinMultiplier) : decor!.sellPrice;
       itemsToSell.push({

@@ -301,6 +301,7 @@ Vende colheitas do inventário em troca de Petalitas.
   "quantity": 10
 }
 ```
+*Notas:* `quantity` é um número inteiro maior que zero (texto numérico não vale). Omitido vale 1; acima do estoque, vende o que houver. Outro valor, inclusive `0` e `null`, volta 400 `INVALID_QUANTITY` e nada muda.
 - **Resposta Sucesso (200 OK):**
 ```json
 {
