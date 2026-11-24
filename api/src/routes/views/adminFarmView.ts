@@ -751,6 +751,10 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
     .btn-action:hover {
       background: #733aa8;
     }
+    .btn-action:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
     .btn-action.secondary {
       background: #251838;
       border: 1px solid #5a3682;
@@ -1526,7 +1530,7 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
       <div class="tab-content" id="tab-sell">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <h3 class="section-title" style="border:none; padding:0;">🌾 Colheitas Prontas para Venda</h3>
-          <button class="btn-action sell-all" id="btn-sell-all" style="flex:none; padding:0.45rem 1rem;">🌱 Vender Todas as Colheitas</button>
+          <button class="btn-action sell-all" id="btn-sell-all" data-action-key="sell:all" style="flex:none; padding:0.45rem 1rem;">🌱 Vender Todas as Colheitas</button>
         </div>
         <div class="items-grid" id="sell-items-list" style="margin-top:0.75rem;"></div>
       </div>
@@ -1771,6 +1775,45 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
       setTimeout(() => {
         toast.className = 'toast';
       }, 3500);
+    }
+
+    const DOUBLE_CLICK_MS = 500;
+    const SAME_SPOT_PX = 12;
+    const lockedActions = new Map();
+    const actionQueues = {};
+
+    function isActionLocked(key) {
+      return lockedActions.has(key) || (key.startsWith('sell:') && lockedActions.has('sell:all'));
+    }
+
+    function isRepeatedClick(event, { click, settled }) {
+      const sameSpot = click.detail > 0 && event.detail > 0 && Math.hypot(click.clientX - event.clientX, click.clientY - event.clientY) < SAME_SPOT_PX;
+      return sameSpot && (settled || event.timeStamp - click.timeStamp < DOUBLE_CLICK_MS);
+    }
+
+    function syncActionLocks() {
+      document.querySelectorAll('[data-action-key]').forEach(btn => {
+        btn.disabled = isActionLocked(btn.dataset.actionKey);
+      });
+    }
+
+    function runLocked(event, key, action) {
+      if (isActionLocked(key) || [...lockedActions.values()].some(lock => isRepeatedClick(event, lock))) return;
+
+      const lock = { click: event, settled: false };
+      lockedActions.set(key, lock);
+      syncActionLocks();
+
+      const queue = key.split(':')[0];
+      const run = Promise.resolve(actionQueues[queue]).then(action);
+      actionQueues[queue] = run.catch(() => {});
+      run.finally(() => {
+        lock.settled = true;
+        setTimeout(() => {
+          lockedActions.delete(key);
+          syncActionLocks();
+        }, DOUBLE_CLICK_MS);
+      });
     }
 
     // Plantation Area Geometry Check
@@ -2274,30 +2317,26 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
                 \${canPlant ? '🌱 Plantar' : 'Sem Canteiro Livre'}
               </div>
               <div class="action-btn-row">
-                <button class="btn-subaction" \${canPlant ? '' : 'disabled'} onclick="plantSeedFromInventory('\${plantId}', '\${it.name.replace(/'/g, \"\\\\'\")}', 1)">1x</button>
-                <button class="btn-subaction" \${canPlant ? '' : 'disabled'} onclick="plantSeedFromInventory('\${plantId}', '\${it.name.replace(/'/g, \"\\\\'\")}', 3)">3x</button>
-                <button class="btn-subaction" \${canPlant ? '' : 'disabled'} onclick="plantSeedFromInventory('\${plantId}', '\${it.name.replace(/'/g, \"\\\\'\")}', 9)">9x</button>
+                <button class="btn-subaction" \${canPlant ? 'data-action-key="plant:' + plantId + '"' : 'disabled'} onclick="runLocked(event, 'plant:\${plantId}', () => plantSeedFromInventory('\${plantId}', '\${it.name.replace(/'/g, \"\\\\'\")}', 1))">1x</button>
+                <button class="btn-subaction" \${canPlant ? 'data-action-key="plant:' + plantId + '"' : 'disabled'} onclick="runLocked(event, 'plant:\${plantId}', () => plantSeedFromInventory('\${plantId}', '\${it.name.replace(/'/g, \"\\\\'\")}', 3))">3x</button>
+                <button class="btn-subaction" \${canPlant ? 'data-action-key="plant:' + plantId + '"' : 'disabled'} onclick="runLocked(event, 'plant:\${plantId}', () => plantSeedFromInventory('\${plantId}', '\${it.name.replace(/'/g, \"\\\\'\")}', 9))">9x</button>
               </div>
             </div>
           </div>
         \`;
       }).join('');
+      syncActionLocks();
     }
 
-    let isPlanting = false;
     async function plantSeedFromInventory(plantId, plantName, requestedQty = 1) {
-      if (isPlanting) return;
-      isPlanting = true;
       const freeSlots = currentSlots.filter(s => s.stage === 'empty' || !s.plantId || s.stage === 'withered');
       if (freeSlots.length === 0) {
-        isPlanting = false;
         return showToast('⚠️ Todos os 9 canteiros estão ocupados! Colha plantas prontas primeiro.', true);
       }
 
       const inv = inventoryItems.find(i => (i.type === 'seed' || !i.itemId.startsWith('crop_')) && (i.baseId === plantId || i.itemId === plantId));
       const availableSeeds = inv ? inv.quantity : 0;
       if (availableSeeds <= 0) {
-        isPlanting = false;
         return showToast('⚠️ Você não possui sementes de ' + plantName + ' na mochila!', true);
       }
 
@@ -2350,8 +2389,6 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
         showToast('🌱 ' + actuallyPlanted + 'x ' + plantName + ' plantada(s) com sucesso!', false);
       } catch (err) {
         showToast(err.message, true);
-      } finally {
-        isPlanting = false;
       }
     }
 
@@ -3161,17 +3198,15 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
             </div>
           </div>
           <div class="item-card-actions">
-            <button class="btn-action" onclick="sellItem('\${c.itemId}', 1, \${c.sellPrice}, '\${c.name}')">Vender 1</button>
-            <button class="btn-action secondary" onclick="sellItem('\${c.itemId}', \${c.quantity}, \${c.sellPrice * c.quantity}, '\${c.name}')">Vender Tudo (x\${c.quantity})</button>
+            <button class="btn-action" data-action-key="sell:\${c.itemId}" onclick="runLocked(event, 'sell:\${c.itemId}', () => sellItem('\${c.itemId}', 1, \${c.sellPrice}, '\${c.name}'))">Vender 1</button>
+            <button class="btn-action secondary" data-action-key="sell:\${c.itemId}" onclick="runLocked(event, 'sell:\${c.itemId}', () => sellItem('\${c.itemId}', \${c.quantity}, \${c.sellPrice * c.quantity}, '\${c.name}'))">Vender Tudo (x\${c.quantity})</button>
           </div>
         </div>
       \`).join('');
+      syncActionLocks();
     }
 
-    let isSelling = false;
     async function sellItem(itemId, qty, totalEarned, name) {
-      if (isSelling) return;
-      isSelling = true;
       try {
         const res = await fetch('/farm/' + USER_ID + '/sell', {
           method: 'POST',
@@ -3195,14 +3230,10 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
         showToast('🌱 Vendeu ' + qty + 'x ' + name + ' por +' + data.totalCoinsEarned.toLocaleString('pt-BR') + ' Ptl!');
       } catch (err) {
         showToast(err.message, true);
-      } finally {
-        isSelling = false;
       }
     }
 
     async function sellAllCrops() {
-      if (isSelling) return;
-      isSelling = true;
       try {
         const res = await fetch('/farm/' + USER_ID + '/sell', {
           method: 'POST',
@@ -3227,8 +3258,6 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
         showToast('🌱 Todas as colheitas vendidas por +' + data.totalCoinsEarned.toLocaleString('pt-BR') + ' Ptl!');
       } catch (err) {
         showToast(err.message, true);
-      } finally {
-        isSelling = false;
       }
     }
 
@@ -3390,7 +3419,7 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
       });
     });
 
-    document.getElementById('btn-sell-all').addEventListener('click', sellAllCrops);
+    document.getElementById('btn-sell-all').addEventListener('click', (event) => runLocked(event, 'sell:all', sellAllCrops));
 
     // 10. Sincronização Dinâmica da Altura da Sidebar com a Fazenda no Desktop
     function syncSidebarHeight() {
