@@ -366,6 +366,31 @@ describe('cliques rápidos em Plantar e Vender na fazenda web', () => {
       expect(page.sent.map((s) => s.body.itemId)).toEqual([`crop_${A}`, `crop_${B}`, `crop_${B}`]);
     });
 
+    it.each(['Enter', ' ', 'Shift', 'ArrowDown'])('a tecla %s durante a trava não perde o foco', async (key) => {
+      const page = openPage([crop(A, 5), crop(B, 5)]);
+      page.focus('Vender 1', 1);
+      await page.press('Enter');
+      await wait(250);
+      await page.press(key);
+      page.sent[0].resolve(sold(10));
+      await wait(1000);
+      expect(page.focused()).toBe('Vender 1');
+      await page.press('Enter');
+      expect(page.sent.map((s) => s.body.itemId)).toEqual([`crop_${B}`, `crop_${B}`]);
+    });
+
+    it.each(['Enter', ' '])('%s sobre o botão já focado pelo mouse, depois de uma recusa, é ação do teclado', async (key) => {
+      const page = openPage([crop(A, 5)]);
+      await page.click('Vender 1');
+      page.sent[0].resolve({ message: 'Você não possui colheitas' }, false);
+      await wait(1200);
+      page.focus('Vender 1');
+      await page.press(key);
+      page.sent[1].resolve(sold(10));
+      await wait(1200);
+      expect(page.focused()).toBe('Vender 1');
+    });
+
     it('plantar 3x devolve o foco ao 3x', async () => {
       const page = openPage([seed(A, 9)]);
       page.show('plant');
