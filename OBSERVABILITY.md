@@ -92,7 +92,7 @@ nunca é gravada (pode conter texto do usuário, ex. `Planta desconhecida: "<tex
 | `farm harvest tx` | transação interativa do Prisma (inclui BEGIN/COMMIT): `jds.harvest.slots_reset`, `jds.harvest.plant_types`; filhos `farm harvest tx.begin` (BEGIN), `.write` (corpo, com os `prisma *`) e `.commit` (COMMIT) — helper `withTxSpans` |
 | `notify harvest` | `jds.notify.status_code`, `jds.notify.sent` (true só em 2xx), `app.outcome` (ok / rejected em 4xx / error em 5xx ou falha de rede, com `error.type`), `jds.notify.plant_types`, `server.address` |
 | `farm daily` | `jds.daily.coins`, `jds.daily.items` |
-| `farm sell` | `jds.sell.all`, `jds.sell.items`, `jds.sell.coins` |
+| `farm sell` | `jds.sell.all`, `jds.sell.items`, `jds.sell.coins`; `quantity` inválido vira `app.outcome=rejected` com `app.reject.reason=invalid_quantity` |
 | `farm use` | — |
 | `farm decorate` | `jds.decorate.op` = equip/unequip/batch, `jds.decorate.count` |
 | `shop buy` | `jds.shop.quantity`, `jds.shop.item_id`, `jds.shop.cost` |

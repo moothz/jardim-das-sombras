@@ -88,7 +88,7 @@ Rotas de consulta pública (`GET /health`, `GET /farm/:user_id`, `GET /farm/:use
 | `POST` | `/farm/:user_id/use` | `API_KEY` | `{"itemId": 31, "slot": 1}` | Usa um consumível/elixir da mochila (pelo número 31 a 39 ou pelo ID). |
 | `POST` | `/farm/:user_id/daily` | `API_KEY` | `{}` | Reivindica a Sacola do Coveiro (Petalitas e sementes diárias aleatórias). |
 | `POST` | `/farm/:user_id/decorate` | `API_KEY` | `{"decorId": 13, "slotIndex": 1}` ou `{"decorId": 13, "x": 200, "y": 750}` | Posiciona item decorativo por slot periférico (1 a 4) ou coordenadas livres `(x, y)`. |
-| `POST` | `/farm/:user_id/sell` | `API_KEY` | `{"all": true}` ou `{"itemId": "crop_01_nightshade", "quantity": 5}` | Vende colheitas do inventário por Petalitas. Enfeites VIP têm venda bloqueada. |
+| `POST` | `/farm/:user_id/sell` | `API_KEY` | `{"all": true}` ou `{"itemId": "crop_01_nightshade", "quantity": 5}` | Vende colheitas do inventário por Petalitas. `quantity` é um número inteiro maior que zero: omitido vale 1, acima do estoque vende o que houver, outro valor volta 400 `INVALID_QUANTITY`. Enfeites VIP têm venda bloqueada. |
 | `GET` | `/farm/:user_id/harvest-totals` | `API_KEY` | Nenhum | Retorna o total acumulado histórico colhido de cada planta (para reconciliação de bônus). |
 
 ---
