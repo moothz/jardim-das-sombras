@@ -378,6 +378,10 @@ export class FarmService {
       witherTimeSeconds += (buffs.witherFreezeRemainingSeconds || 86400); // Adiciona tempo total de congelamento restante
     }
     const witherAt = new Date(harvestAt.getTime() + witherTimeSeconds * 1000);
+    const witherYear = witherAt.getUTCFullYear();
+    if (Number.isNaN(witherYear) || witherYear > 9999) {
+      throw new DomainError('O witherMultiplier leva o apodrecimento para além do ano 9999.', 'INVALID_PAYLOAD', 400);
+    }
 
     const emptySlots = player.slots.filter((s) => s.stage === 'empty' || !s.plantId || s.stage === 'withered');
 

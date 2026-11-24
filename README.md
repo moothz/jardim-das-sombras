@@ -143,7 +143,7 @@ O microsserviço disponibiliza mais de 30 endpoints organizados por domínio (Cu
 | Grupo | Endpoints Principais | Autenticação |
 |---|---|---|
 | **Fazenda & Gráficos** | `GET /farm/:user_id`, `GET /farm/:user_id/image`, `GET /farm` | Pública / Token |
-| **Ações de Cultivo** | `POST /farm/:user_id/plant`, `POST /farm/:user_id/harvest`, `POST /farm/:user_id/use` | API_KEY / Token |
+| **Ações de Cultivo** | `POST /farm/:user_id/plant`, `POST /farm/:user_id/harvest`, `POST /farm/:user_id/use` | API_KEY / Token (`witherMultiplier` do plantio só com API_KEY) |
 | **Economia & Loja** | `GET /shop`, `POST /shop/buy/:user_id`, `POST /farm/:user_id/sell` | Pública / API_KEY |
 | **Mochila & Decoração** | `GET /inventory/:user_id`, `POST /farm/:user_id/decorate`, `PUT /farm/:user_id/decorations` | Pública / API_KEY |
 | **Rankings & Digests** | `GET /rankings/wealth`, `GET /rankings/farmers`, `GET /rankings/digest` | Pública |
