@@ -1861,7 +1861,8 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
     });
     document.addEventListener('keydown', (event) => {
       usingPointer = false;
-      rememberFocus(event);
+      const btn = event.target.closest('[data-action-key]');
+      if (btn && !btn.disabled && (event.key === 'Enter' || event.key === ' ')) rememberFocus(event);
     });
 
     document.addEventListener('keydown', (event) => {
