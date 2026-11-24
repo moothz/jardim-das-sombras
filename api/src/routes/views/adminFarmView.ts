@@ -751,6 +751,10 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
     .btn-action:hover {
       background: #733aa8;
     }
+    .btn-action:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
     .btn-action.secondary {
       background: #251838;
       border: 1px solid #5a3682;
@@ -1526,7 +1530,7 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
       <div class="tab-content" id="tab-sell">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <h3 class="section-title" style="border:none; padding:0;">🌾 Colheitas Prontas para Venda</h3>
-          <button class="btn-action sell-all" id="btn-sell-all" style="flex:none; padding:0.45rem 1rem;">🌱 Vender Todas as Colheitas</button>
+          <button class="btn-action sell-all" id="btn-sell-all" data-action-key="sell:all" style="flex:none; padding:0.45rem 1rem;">🌱 Vender Todas as Colheitas</button>
         </div>
         <div class="items-grid" id="sell-items-list" style="margin-top:0.75rem;"></div>
       </div>
@@ -1772,6 +1776,98 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
         toast.className = 'toast';
       }, 3500);
     }
+
+    const DOUBLE_CLICK_MS = 500;
+    const AFTER_REPLY_MS = 100;
+    const SAME_SPOT_PX = 12;
+    const actionLocks = new Map();
+    const actionQueues = {};
+    const lastClicks = {};
+    let focusedAction = null;
+    let usingPointer = false;
+
+    function queueOf(key) {
+      return key.split(':')[0];
+    }
+
+    function isUnderClick(btn, click) {
+      const { left, right, top, bottom } = btn.getBoundingClientRect();
+      const dx = Math.max(left - click.clientX, 0, click.clientX - right);
+      const dy = Math.max(top - click.clientY, 0, click.clientY - bottom);
+      return Math.hypot(dx, dy) < SAME_SPOT_PX;
+    }
+
+    function isActionLocked(btn) {
+      const key = btn.dataset.actionKey;
+      return [...actionLocks].some(([lockedKey, lock]) =>
+        queueOf(lockedKey) === queueOf(key) &&
+        (lockedKey === key || lockedKey === 'sell:all' || (lock.holds > 0 && isUnderClick(btn, lock.click)))
+      );
+    }
+
+    function buttonsOf(key) {
+      return [...document.querySelectorAll('[data-action-key="' + key + '"]')];
+    }
+
+    function syncActionLocks() {
+      document.querySelectorAll('[data-action-key]').forEach(btn => {
+        btn.disabled = isActionLocked(btn);
+      });
+      if (focusedAction) buttonsOf(focusedAction.key)[focusedAction.index]?.focus({ preventScroll: true });
+    }
+
+    function holdLock(key, lock, ms) {
+      lock.holds++;
+      setTimeout(() => {
+        lock.holds--;
+        if (!lock.pending && lock.holds === 0) actionLocks.delete(key);
+        syncActionLocks();
+      }, ms);
+    }
+
+    function isDoubleClick(event, last) {
+      return last && event.timeStamp - last.timeStamp < DOUBLE_CLICK_MS && isUnderClick(event.currentTarget, last);
+    }
+
+    function runLocked(event, action) {
+      const key = event.currentTarget.dataset.actionKey;
+      const queue = queueOf(key);
+      if (isDoubleClick(event, lastClicks[queue])) return;
+      lastClicks[queue] = event;
+
+      const lock = { click: event, pending: true, holds: 0 };
+      actionLocks.set(key, lock);
+      holdLock(key, lock, DOUBLE_CLICK_MS);
+      syncActionLocks();
+
+      const run = Promise.resolve(actionQueues[queue]).then(action);
+      actionQueues[queue] = run.catch(() => {});
+      run.finally(() => {
+        lock.pending = false;
+        holdLock(key, lock, AFTER_REPLY_MS);
+        syncActionLocks();
+      });
+    }
+
+    function rememberFocus(event) {
+      const btn = usingPointer ? null : event.target.closest('[data-action-key]');
+      focusedAction = btn && { key: btn.dataset.actionKey, index: buttonsOf(btn.dataset.actionKey).indexOf(btn) };
+    }
+
+    document.addEventListener('focusin', rememberFocus);
+    document.addEventListener('pointerdown', (event) => {
+      usingPointer = true;
+      rememberFocus(event);
+    });
+    document.addEventListener('keydown', (event) => {
+      usingPointer = false;
+      const btn = event.target.closest('[data-action-key]');
+      if (btn && !btn.disabled && (event.key === 'Enter' || event.key === ' ')) rememberFocus(event);
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.repeat && event.key === 'Enter' && event.target.closest('[data-action-key]')) event.preventDefault();
+    });
 
     // Plantation Area Geometry Check
     // Center (512, 530), rx=480, ry=270
@@ -2274,30 +2370,26 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
                 \${canPlant ? '🌱 Plantar' : 'Sem Canteiro Livre'}
               </div>
               <div class="action-btn-row">
-                <button class="btn-subaction" \${canPlant ? '' : 'disabled'} onclick="plantSeedFromInventory('\${plantId}', '\${it.name.replace(/'/g, \"\\\\'\")}', 1)">1x</button>
-                <button class="btn-subaction" \${canPlant ? '' : 'disabled'} onclick="plantSeedFromInventory('\${plantId}', '\${it.name.replace(/'/g, \"\\\\'\")}', 3)">3x</button>
-                <button class="btn-subaction" \${canPlant ? '' : 'disabled'} onclick="plantSeedFromInventory('\${plantId}', '\${it.name.replace(/'/g, \"\\\\'\")}', 9)">9x</button>
+                <button class="btn-subaction" \${canPlant ? 'data-action-key="plant:' + plantId + '"' : 'disabled'} onclick="runLocked(event, () => plantSeedFromInventory('\${plantId}', '\${it.name.replace(/'/g, \"\\\\'\")}', 1))">1x</button>
+                <button class="btn-subaction" \${canPlant ? 'data-action-key="plant:' + plantId + '"' : 'disabled'} onclick="runLocked(event, () => plantSeedFromInventory('\${plantId}', '\${it.name.replace(/'/g, \"\\\\'\")}', 3))">3x</button>
+                <button class="btn-subaction" \${canPlant ? 'data-action-key="plant:' + plantId + '"' : 'disabled'} onclick="runLocked(event, () => plantSeedFromInventory('\${plantId}', '\${it.name.replace(/'/g, \"\\\\'\")}', 9))">9x</button>
               </div>
             </div>
           </div>
         \`;
       }).join('');
+      syncActionLocks();
     }
 
-    let isPlanting = false;
     async function plantSeedFromInventory(plantId, plantName, requestedQty = 1) {
-      if (isPlanting) return;
-      isPlanting = true;
       const freeSlots = currentSlots.filter(s => s.stage === 'empty' || !s.plantId || s.stage === 'withered');
       if (freeSlots.length === 0) {
-        isPlanting = false;
         return showToast('⚠️ Todos os 9 canteiros estão ocupados! Colha plantas prontas primeiro.', true);
       }
 
       const inv = inventoryItems.find(i => (i.type === 'seed' || !i.itemId.startsWith('crop_')) && (i.baseId === plantId || i.itemId === plantId));
       const availableSeeds = inv ? inv.quantity : 0;
       if (availableSeeds <= 0) {
-        isPlanting = false;
         return showToast('⚠️ Você não possui sementes de ' + plantName + ' na mochila!', true);
       }
 
@@ -2350,8 +2442,6 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
         showToast('🌱 ' + actuallyPlanted + 'x ' + plantName + ' plantada(s) com sucesso!', false);
       } catch (err) {
         showToast(err.message, true);
-      } finally {
-        isPlanting = false;
       }
     }
 
@@ -3142,9 +3232,13 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
     }
 
     // 7. Sell Tab Rendering and Actions
+    function sellableCrops() {
+      return inventoryItems.filter(i => i.type === 'crop' && i.quantity > 0);
+    }
+
     function renderSell() {
       const container = document.getElementById('sell-items-list');
-      const crops = inventoryItems.filter(i => i.type === 'crop' && i.quantity > 0);
+      const crops = sellableCrops();
 
       if (crops.length === 0) {
         container.innerHTML = '<p style="color:#8c7d9e; font-size:12px; grid-column:1/-1;">Nenhuma colheita pronta para vender no momento. Colha pela aba Terreno (ou no bot com !faz-colheita) — os bônus de iscas, rols e fichas chegam automaticamente no seu privado.</p>';
@@ -3161,17 +3255,15 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
             </div>
           </div>
           <div class="item-card-actions">
-            <button class="btn-action" onclick="sellItem('\${c.itemId}', 1, \${c.sellPrice}, '\${c.name}')">Vender 1</button>
-            <button class="btn-action secondary" onclick="sellItem('\${c.itemId}', \${c.quantity}, \${c.sellPrice * c.quantity}, '\${c.name}')">Vender Tudo (x\${c.quantity})</button>
+            <button class="btn-action" data-action-key="sell:\${c.itemId}" onclick="runLocked(event, () => sellItem('\${c.itemId}', 1, \${c.sellPrice}, '\${c.name}'))">Vender 1</button>
+            <button class="btn-action secondary" data-action-key="sell:\${c.itemId}" onclick="runLocked(event, () => sellItem('\${c.itemId}', \${c.quantity}, \${c.sellPrice * c.quantity}, '\${c.name}'))">Vender Tudo (x\${c.quantity})</button>
           </div>
         </div>
       \`).join('');
+      syncActionLocks();
     }
 
-    let isSelling = false;
     async function sellItem(itemId, qty, totalEarned, name) {
-      if (isSelling) return;
-      isSelling = true;
       try {
         const res = await fetch('/farm/' + USER_ID + '/sell', {
           method: 'POST',
@@ -3195,14 +3287,10 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
         showToast('🌱 Vendeu ' + qty + 'x ' + name + ' por +' + data.totalCoinsEarned.toLocaleString('pt-BR') + ' Ptl!');
       } catch (err) {
         showToast(err.message, true);
-      } finally {
-        isSelling = false;
       }
     }
 
     async function sellAllCrops() {
-      if (isSelling) return;
-      isSelling = true;
       try {
         const res = await fetch('/farm/' + USER_ID + '/sell', {
           method: 'POST',
@@ -3227,8 +3315,6 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
         showToast('🌱 Todas as colheitas vendidas por +' + data.totalCoinsEarned.toLocaleString('pt-BR') + ' Ptl!');
       } catch (err) {
         showToast(err.message, true);
-      } finally {
-        isSelling = false;
       }
     }
 
@@ -3390,7 +3476,13 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
       });
     });
 
-    document.getElementById('btn-sell-all').addEventListener('click', sellAllCrops);
+    document.getElementById('btn-sell-all').addEventListener('click', (event) => {
+      const hadCrops = sellableCrops().length > 0;
+      runLocked(event, async () => {
+        if (hadCrops && sellableCrops().length === 0) return;
+        await sellAllCrops();
+      });
+    });
 
     // 10. Sincronização Dinâmica da Altura da Sidebar com a Fazenda no Desktop
     function syncSidebarHeight() {
