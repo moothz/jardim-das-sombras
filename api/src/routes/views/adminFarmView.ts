@@ -1778,43 +1778,86 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
     }
 
     const DOUBLE_CLICK_MS = 500;
+    const AFTER_REPLY_MS = 100;
     const SAME_SPOT_PX = 12;
-    const lockedActions = new Map();
+    const actionLocks = new Map();
     const actionQueues = {};
+    const lastClicks = {};
+    let focusedAction = null;
 
-    function isActionLocked(key) {
-      return lockedActions.has(key) || (key.startsWith('sell:') && lockedActions.has('sell:all'));
+    function queueOf(key) {
+      return key.split(':')[0];
     }
 
-    function isRepeatedClick(event, { click, settled }) {
-      const sameSpot = click.detail > 0 && event.detail > 0 && Math.hypot(click.clientX - event.clientX, click.clientY - event.clientY) < SAME_SPOT_PX;
-      return sameSpot && (settled || event.timeStamp - click.timeStamp < DOUBLE_CLICK_MS);
+    function isUnderClick(btn, click) {
+      const { left, right, top, bottom } = btn.getBoundingClientRect();
+      const dx = Math.max(left - click.clientX, 0, click.clientX - right);
+      const dy = Math.max(top - click.clientY, 0, click.clientY - bottom);
+      return Math.hypot(dx, dy) < SAME_SPOT_PX;
+    }
+
+    function isActionLocked(btn) {
+      const key = btn.dataset.actionKey;
+      return [...actionLocks].some(([lockedKey, lock]) =>
+        queueOf(lockedKey) === queueOf(key) &&
+        (lockedKey === key || lockedKey === 'sell:all' || (lock.holds > 0 && isUnderClick(btn, lock.click)))
+      );
+    }
+
+    function buttonsOf(key) {
+      return [...document.querySelectorAll('[data-action-key="' + key + '"]')];
     }
 
     function syncActionLocks() {
       document.querySelectorAll('[data-action-key]').forEach(btn => {
-        btn.disabled = isActionLocked(btn.dataset.actionKey);
+        btn.disabled = isActionLocked(btn);
       });
+      if (focusedAction) buttonsOf(focusedAction.key)[focusedAction.index]?.focus({ preventScroll: true });
     }
 
-    function runLocked(event, key, action) {
-      if (isActionLocked(key) || [...lockedActions.values()].some(lock => isRepeatedClick(event, lock))) return;
+    function holdLock(key, lock, ms) {
+      lock.holds++;
+      setTimeout(() => {
+        lock.holds--;
+        if (!lock.pending && lock.holds === 0) actionLocks.delete(key);
+        syncActionLocks();
+      }, ms);
+    }
 
-      const lock = { click: event, settled: false };
-      lockedActions.set(key, lock);
+    function isDoubleClick(event, last) {
+      return last && event.timeStamp - last.timeStamp < DOUBLE_CLICK_MS && isUnderClick(event.currentTarget, last);
+    }
+
+    function runLocked(event, action) {
+      const key = event.currentTarget.dataset.actionKey;
+      const queue = queueOf(key);
+      if (isDoubleClick(event, lastClicks[queue])) return;
+      lastClicks[queue] = event;
+
+      const lock = { click: event, pending: true, holds: 0 };
+      actionLocks.set(key, lock);
+      holdLock(key, lock, DOUBLE_CLICK_MS);
       syncActionLocks();
 
-      const queue = key.split(':')[0];
       const run = Promise.resolve(actionQueues[queue]).then(action);
       actionQueues[queue] = run.catch(() => {});
       run.finally(() => {
-        lock.settled = true;
-        setTimeout(() => {
-          lockedActions.delete(key);
-          syncActionLocks();
-        }, DOUBLE_CLICK_MS);
+        lock.pending = false;
+        holdLock(key, lock, AFTER_REPLY_MS);
+        syncActionLocks();
       });
     }
+
+    ['focusin', 'pointerdown'].forEach(type => {
+      document.addEventListener(type, (event) => {
+        const btn = event.target.closest('[data-action-key]');
+        focusedAction = btn && { key: btn.dataset.actionKey, index: buttonsOf(btn.dataset.actionKey).indexOf(btn) };
+      });
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.repeat && event.key === 'Enter' && event.target.closest('[data-action-key]')) event.preventDefault();
+    });
 
     // Plantation Area Geometry Check
     // Center (512, 530), rx=480, ry=270
@@ -2317,9 +2360,9 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
                 \${canPlant ? '🌱 Plantar' : 'Sem Canteiro Livre'}
               </div>
               <div class="action-btn-row">
-                <button class="btn-subaction" \${canPlant ? 'data-action-key="plant:' + plantId + '"' : 'disabled'} onclick="runLocked(event, 'plant:\${plantId}', () => plantSeedFromInventory('\${plantId}', '\${it.name.replace(/'/g, \"\\\\'\")}', 1))">1x</button>
-                <button class="btn-subaction" \${canPlant ? 'data-action-key="plant:' + plantId + '"' : 'disabled'} onclick="runLocked(event, 'plant:\${plantId}', () => plantSeedFromInventory('\${plantId}', '\${it.name.replace(/'/g, \"\\\\'\")}', 3))">3x</button>
-                <button class="btn-subaction" \${canPlant ? 'data-action-key="plant:' + plantId + '"' : 'disabled'} onclick="runLocked(event, 'plant:\${plantId}', () => plantSeedFromInventory('\${plantId}', '\${it.name.replace(/'/g, \"\\\\'\")}', 9))">9x</button>
+                <button class="btn-subaction" \${canPlant ? 'data-action-key="plant:' + plantId + '"' : 'disabled'} onclick="runLocked(event, () => plantSeedFromInventory('\${plantId}', '\${it.name.replace(/'/g, \"\\\\'\")}', 1))">1x</button>
+                <button class="btn-subaction" \${canPlant ? 'data-action-key="plant:' + plantId + '"' : 'disabled'} onclick="runLocked(event, () => plantSeedFromInventory('\${plantId}', '\${it.name.replace(/'/g, \"\\\\'\")}', 3))">3x</button>
+                <button class="btn-subaction" \${canPlant ? 'data-action-key="plant:' + plantId + '"' : 'disabled'} onclick="runLocked(event, () => plantSeedFromInventory('\${plantId}', '\${it.name.replace(/'/g, \"\\\\'\")}', 9))">9x</button>
               </div>
             </div>
           </div>
@@ -3179,9 +3222,13 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
     }
 
     // 7. Sell Tab Rendering and Actions
+    function sellableCrops() {
+      return inventoryItems.filter(i => i.type === 'crop' && i.quantity > 0);
+    }
+
     function renderSell() {
       const container = document.getElementById('sell-items-list');
-      const crops = inventoryItems.filter(i => i.type === 'crop' && i.quantity > 0);
+      const crops = sellableCrops();
 
       if (crops.length === 0) {
         container.innerHTML = '<p style="color:#8c7d9e; font-size:12px; grid-column:1/-1;">Nenhuma colheita pronta para vender no momento. Colha pela aba Terreno (ou no bot com !faz-colheita) — os bônus de iscas, rols e fichas chegam automaticamente no seu privado.</p>';
@@ -3198,8 +3245,8 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
             </div>
           </div>
           <div class="item-card-actions">
-            <button class="btn-action" data-action-key="sell:\${c.itemId}" onclick="runLocked(event, 'sell:\${c.itemId}', () => sellItem('\${c.itemId}', 1, \${c.sellPrice}, '\${c.name}'))">Vender 1</button>
-            <button class="btn-action secondary" data-action-key="sell:\${c.itemId}" onclick="runLocked(event, 'sell:\${c.itemId}', () => sellItem('\${c.itemId}', \${c.quantity}, \${c.sellPrice * c.quantity}, '\${c.name}'))">Vender Tudo (x\${c.quantity})</button>
+            <button class="btn-action" data-action-key="sell:\${c.itemId}" onclick="runLocked(event, () => sellItem('\${c.itemId}', 1, \${c.sellPrice}, '\${c.name}'))">Vender 1</button>
+            <button class="btn-action secondary" data-action-key="sell:\${c.itemId}" onclick="runLocked(event, () => sellItem('\${c.itemId}', \${c.quantity}, \${c.sellPrice * c.quantity}, '\${c.name}'))">Vender Tudo (x\${c.quantity})</button>
           </div>
         </div>
       \`).join('');
@@ -3419,7 +3466,13 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
       });
     });
 
-    document.getElementById('btn-sell-all').addEventListener('click', (event) => runLocked(event, 'sell:all', sellAllCrops));
+    document.getElementById('btn-sell-all').addEventListener('click', (event) => {
+      const hadCrops = sellableCrops().length > 0;
+      runLocked(event, async () => {
+        if (hadCrops && sellableCrops().length === 0) return;
+        await sellAllCrops();
+      });
+    });
 
     // 10. Sincronização Dinâmica da Altura da Sidebar com a Fazenda no Desktop
     function syncSidebarHeight() {
