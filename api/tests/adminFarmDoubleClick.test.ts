@@ -339,6 +339,33 @@ describe('cliques rápidos em Plantar e Vender na fazenda web', () => {
       expect(page.sent.map((s) => s.body)).toEqual([{ itemId: `crop_${B}`, quantity: 1 }, { itemId: `crop_${B}`, quantity: 1 }]);
     });
 
+    it.each([
+      ['Vender 1', 'sell', [crop(A, 5)], sold(10)],
+      ['1x', 'plant', [seed(A, 5)], planted([1])],
+    ] as const)('depois de clicar em %s, Espaço e Enter não repetem a ação', async (label, tab, inventory, data) => {
+      const page = openPage([...inventory]);
+      page.show(tab);
+      await page.click(label);
+      page.sent[0].resolve(data);
+      await wait(1200);
+      for (const key of [' ', ' ', 'Enter']) { await page.press(key); await wait(600); }
+      expect(page.sent).toHaveLength(1);
+    });
+
+    it('depois do mouse, o teclado volta a guardar o foco', async () => {
+      const page = openPage([crop(A, 5), crop(B, 5)]);
+      await page.click('Vender 1');
+      page.sent[0].resolve(sold(10));
+      await wait(1200);
+      await page.press('Tab');
+      page.focus('Vender 1', 1);
+      await page.press('Enter');
+      page.sent[1].resolve(sold(10));
+      await wait(1000);
+      await page.press('Enter');
+      expect(page.sent.map((s) => s.body.itemId)).toEqual([`crop_${A}`, `crop_${B}`, `crop_${B}`]);
+    });
+
     it('plantar 3x devolve o foco ao 3x', async () => {
       const page = openPage([seed(A, 9)]);
       page.show('plant');
