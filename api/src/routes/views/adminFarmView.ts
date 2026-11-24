@@ -1784,6 +1784,7 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
     const actionQueues = {};
     const lastClicks = {};
     let focusedAction = null;
+    let usingPointer = false;
 
     function queueOf(key) {
       return key.split(':')[0];
@@ -1848,11 +1849,19 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
       });
     }
 
-    ['focusin', 'pointerdown'].forEach(type => {
-      document.addEventListener(type, (event) => {
-        const btn = event.target.closest('[data-action-key]');
-        focusedAction = btn && { key: btn.dataset.actionKey, index: buttonsOf(btn.dataset.actionKey).indexOf(btn) };
-      });
+    function rememberFocus(event) {
+      const btn = usingPointer ? null : event.target.closest('[data-action-key]');
+      focusedAction = btn && { key: btn.dataset.actionKey, index: buttonsOf(btn.dataset.actionKey).indexOf(btn) };
+    }
+
+    document.addEventListener('focusin', rememberFocus);
+    document.addEventListener('pointerdown', (event) => {
+      usingPointer = true;
+      rememberFocus(event);
+    });
+    document.addEventListener('keydown', (event) => {
+      usingPointer = false;
+      rememberFocus(event);
     });
 
     document.addEventListener('keydown', (event) => {
