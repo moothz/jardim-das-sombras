@@ -181,13 +181,13 @@ Planta sementes nos canteiros da fazenda.
 {
   "itemId": 1,
   "slot": 3,
-  "amount": 1,
-  "witherMultiplier": 1.0
+  "amount": 1
 }
 ```
 *Notas:*
 - `itemId`: Aceita tanto o índice numérico da semente (`1` a `12`) quanto o ID textual (`"01_nightshade"` ou `"nightshade"`).
 - Se `slot` for omitido, a API planta automaticamente em todos os canteiros vazios disponíveis até o limite de sementes no inventário.
+- `witherMultiplier` (opcional): multiplica o tempo até apodrecer. Só vale com a API_KEY (a ravena-ai o envia nos eventos). Com User Token, a presença do campo, com qualquer valor, volta 403 `FORBIDDEN` e nada é plantado. Com a API_KEY, valor que leve o apodrecimento para além do ano 9999 volta 400 `INVALID_PAYLOAD`.
 - **Resposta Sucesso (200 OK):**
 ```json
 {

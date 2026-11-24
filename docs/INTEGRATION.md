@@ -83,7 +83,7 @@ Rotas de consulta pública (`GET /health`, `GET /farm/:user_id`, `GET /farm/:use
 
 | Método | Endpoint | Auth | Payload Exemplo | Descrição |
 |---|---|---|---|---|
-| `POST` | `/farm/:user_id/plant` | `API_KEY` | `{"itemId": 1, "slot": 3}` ou `{"itemId": "nightshade"}` | Planta semente. Se `slot` for omitido, planta em todos os canteiros vazios disponíveis. |
+| `POST` | `/farm/:user_id/plant` | `API_KEY` | `{"itemId": 1, "slot": 3}` ou `{"itemId": "nightshade"}` | Planta semente. Se `slot` for omitido, planta em todos os canteiros vazios disponíveis. `witherMultiplier` (opcional) multiplica o tempo até apodrecer e só vale com a `API_KEY`: com token de jogador volta 403 `FORBIDDEN`, e valor que passe do ano 9999 volta 400 `INVALID_PAYLOAD`. |
 | `POST` | `/farm/:user_id/harvest` | `API_KEY` | `{"all": true}` ou `{"slot": 1}` | Colhe plantas prontas, limpa canteiros mortos e retorna relatório de Petalitas e bônus. |
 | `POST` | `/farm/:user_id/use` | `API_KEY` | `{"itemId": 31, "slot": 1}` | Usa um consumível/elixir da mochila (pelo número 31 a 39 ou pelo ID). |
 | `POST` | `/farm/:user_id/daily` | `API_KEY` | `{}` | Reivindica a Sacola do Coveiro (Petalitas e sementes diárias aleatórias). |

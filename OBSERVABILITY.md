@@ -86,7 +86,7 @@ nunca é gravada (pode conter texto do usuário, ex. `Planta desconhecida: "<tex
 | `farm render` | `jds.render.kind` = farm/share/badge, `jds.render.cache` = hit/miss, `jds.render.format` = jpeg/png, `jds.render.bytes`, `jds.render.draw_ms`, `jds.render.encode_ms` |
 | `canvas draw` | filho de `farm render` (só em miss): composição no canvas |
 | `canvas encode` | filho de `farm render` (só em miss): `toBuffer`, `jds.render.format`, `jds.render.bytes` |
-| `farm plant` | `jds.plant.random`, `jds.plant.count`, `jds.plant.id` (ID do catálogo) |
+| `farm plant` | `jds.plant.random`, `jds.plant.count`, `jds.plant.id` (ID do catálogo); `witherMultiplier` sem a API_KEY vira `app.outcome=rejected` com `app.reject.reason=forbidden`, e fora do alcance de uma data, `invalid_payload` |
 | `farm harvest` | `jds.harvest.all`, `jds.harvest.items`, `jds.harvest.plant_types`, `jds.harvest.withered_cleared`, `jds.harvest.coins`, `jds.notify.attempted` (houve POST) ou `jds.notify.sent=false` + `jds.notify.skip_reason` (empty/disabled/no_key) |
 | `farm plant tx` | transação do plantio (inclui BEGIN/COMMIT): `jds.plant.count`; filhos `farm plant tx.begin`/`.write`/`.commit` |
 | `farm harvest tx` | transação interativa do Prisma (inclui BEGIN/COMMIT): `jds.harvest.slots_reset`, `jds.harvest.plant_types`; filhos `farm harvest tx.begin` (BEGIN), `.write` (corpo, com os `prisma *`) e `.commit` (COMMIT) — helper `withTxSpans` |

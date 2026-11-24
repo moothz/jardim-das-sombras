@@ -3,8 +3,9 @@ import fs from 'fs';
 import { FastifyPluginAsync, FastifyReply } from 'fastify';
 import { FarmService, parseSellQuantity } from '../services/FarmService.js';
 import { CanvasRendererService } from '../services/CanvasRendererService.js';
-import { requireAuth } from '../plugins/auth.js';
+import { requireAuth, isTrustedRequest } from '../plugins/auth.js';
 import { config } from '../config.js';
+import { DomainError } from '../errors/DomainError.js';
 import { t } from '../utils/texts.js';
 import { findPlant } from '../utils/catalog.js';
 import { generateAdminToken, verifyAdminToken } from '../utils/token.js';
@@ -494,6 +495,9 @@ export const farmRoutes: FastifyPluginAsync = async (fastify) => {
         'farm plant',
         { attributes: { 'jds.user.id': userIdAttr(req.params.user_id), 'jds.plant.random': req.body?.random === true } },
         async () => {
+          if (req.body?.witherMultiplier !== undefined && !isTrustedRequest(req)) {
+            throw new DomainError('O campo witherMultiplier só vale em chamadas com a API_KEY.', 'FORBIDDEN', 403);
+          }
           const r = await farmService.plant(req.params.user_id, req.body);
           setAttrs({ 'jds.plant.count': r.plantedCount, 'jds.plant.id': r.plantId });
           return r;
