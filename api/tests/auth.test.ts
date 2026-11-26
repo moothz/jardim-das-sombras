@@ -24,6 +24,11 @@ describe('isValidApiKey (comparação em tempo constante)', () => {
     expect(isValidApiKey('', '')).toBe(false);
     expect(isValidApiKey('qualquer', '')).toBe(false);
   });
+  it('recusa a chave de exemplo em produção e aceita fora de produção', () => {
+    expect(isValidApiKey(DEFAULT_API_KEY, DEFAULT_API_KEY, 'production')).toBe(false);
+    expect(isValidApiKey(DEFAULT_API_KEY, DEFAULT_API_KEY, 'development')).toBe(true);
+    expect(isValidApiKey(DEFAULT_API_KEY, DEFAULT_API_KEY, 'test')).toBe(true);
+  });
 });
 
 describe('requireBotApiKey (rota)', () => {
