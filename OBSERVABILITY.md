@@ -49,6 +49,10 @@ GIT_SHA=$(git rev-parse --short HEAD) docker compose build api && docker compose
   negócio (`farm plant`...), nunca no `request`/`handler - *` (senão cada rejeição contava 3x no painel de rejeições).
   OK (e não UNSET) no `request` porque ele é INTERNAL e carrega `http.response.status_code`: com UNSET o Jaeger v2
   infere ERROR para span não-SERVER com status ≥ 400.
+- Erro inesperado (status ≥ 500): o tratador de erro (`api/src/plugins/errorHandler.ts`, definido antes das rotas)
+  grava o log, chama `recordError` no span ativo (`error.type` + exceção) e responde 500 com corpo genérico
+  (`code: INTERNAL_ERROR`, sem a mensagem original). Erros < 500 (`DomainError`, JSON inválido, 429) seguem o
+  formato padrão do Fastify (`statusCode`, `code`, `error`, `message`).
 - Instrumentações: HTTP (server/client), undici (`fetch`), `@fastify/otel` (rotas com `http.route`; só o hook
   `preHandler` vira span), pino (`trace_id`/`span_id` nos logs JSON do Fastify), runtime do Node (event loop, heap, GC).
 - Prisma: spans manuais `prisma {Model}.{operação}` (CLIENT) via `$extends`. O `@prisma/instrumentation` 5.22
@@ -124,8 +128,5 @@ Todos os spans de negócio e os spans SERVER das rotas por usuário têm `jds.us
   intervalo de microssegundos (fila com 512 spans), um `handler - *` poderia sair ainda como ERROR.
 - Em 4xx do `@fastify/otel` sem `DomainError` (ex.: 404 de rota, JSON inválido), o código vem do `exception.type`
   (ex. `fst_err_ctp_invalid_json_body`).
-- O `setErrorHandler` do `server.ts` é definido depois do registro dos plugins de rota, então hoje ele não é
-  aplicado a essas rotas (comportamento já existente, não alterado). 5xx nelas aparecem como erro pelos spans
-  HTTP/@fastify/otel.
 - Overhead medido (200 requisições sequenciais, local): rotas baratas (~3 ms) ganham ~0,6–1 ms; o render (~27 ms) ~+1,3 ms.
 - Sem logs via OTLP (só `trace_id` no stdout); sem Loki.
