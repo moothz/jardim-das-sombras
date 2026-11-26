@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { DomainError } from '../errors/DomainError.js';
 import { PLANTS, DECORATIONS, CONSUMABLES, findShopItem } from '../utils/catalog.js';
+import { withSpan, withTxSpans, activeSpan, setAttrs } from '../telemetry.js';
 
 /**
  * Retorna a data correspondente ao marco de reset diário (03:00 BRT = 06:00 UTC).
@@ -165,46 +166,66 @@ export class ShopService {
     const totalCost = item.price * quantity;
     const today = getDailyResetDate(new Date());
 
-    return await this.prisma.$transaction(async (tx) => {
+    const businessSpan = activeSpan();
+    const conflict = () => setAttrs({ 'jds.tx.conflict': true }, businessSpan);
+
+    return await withSpan('shop buy tx', { outcome: false }, () =>
+      withTxSpans('shop buy tx', (inTx) => this.prisma.$transaction((tx) => inTx(async () => {
+      const insufficientCoins = (coins: number) =>
+        new DomainError(
+          `Saldo insuficiente! Você tem ${coins.toLocaleString('pt-BR')} Petalitas, mas precisa de ${totalCost.toLocaleString('pt-BR')} Petalitas.`,
+          'INSUFFICIENT_COINS',
+          400
+        );
+
       const player = await tx.player.findUnique({ where: { id: playerId } });
       if (!player) {
         throw new DomainError('Jogador não encontrado.', 'PLAYER_NOT_FOUND', 404);
       }
 
       if (player.coins < totalCost) {
-        throw new DomainError(
-          `Saldo insuficiente! Você tem ${player.coins.toLocaleString('pt-BR')} Petalitas, mas precisa de ${totalCost.toLocaleString('pt-BR')} Petalitas.`,
-          'INSUFFICIENT_COINS',
-          400
-        );
+        throw insufficientCoins(player.coins);
       }
 
       if (item.dailyLimit !== undefined && item.dailyLimit > 0) {
         const maxPerDay = item.dailyLimit;
-        const currentDaily = await tx.dailyPurchase.findUnique({
-          where: { playerId_itemId_date: { playerId, itemId: item.id, date: today } },
-        });
-
-        const alreadyBought = currentDaily ? currentDaily.quantity : 0;
-        if (alreadyBought + quantity > maxPerDay) {
-          throw new DomainError(
+        const key = { playerId, itemId: item.id, date: today };
+        const limitExceeded = (alreadyBought: number) =>
+          new DomainError(
             `Limite diário atingido para [${item.index}] ${item.name}! Você já comprou ${alreadyBought}/${maxPerDay} hoje.`,
             'PLAYER_LIMIT_EXCEEDED',
             400
           );
+
+        const currentDaily = await tx.dailyPurchase.findUnique({ where: { playerId_itemId_date: key } });
+        const alreadyBought = currentDaily ? currentDaily.quantity : 0;
+        if (alreadyBought + quantity > maxPerDay) {
+          throw limitExceeded(alreadyBought);
         }
 
-        await tx.dailyPurchase.upsert({
-          where: { playerId_itemId_date: { playerId, itemId: item.id, date: today } },
-          create: { playerId, itemId: item.id, quantity, date: today },
-          update: { quantity: { increment: quantity } },
+        await tx.dailyPurchase.createMany({ data: [{ ...key, quantity: 0 }], skipDuplicates: true });
+        const { count } = await tx.dailyPurchase.updateMany({
+          where: { ...key, quantity: { lte: maxPerDay - quantity } },
+          data: { quantity: { increment: quantity } },
         });
+        if (count === 0) {
+          conflict();
+          const latest = await tx.dailyPurchase.findUnique({ where: { playerId_itemId_date: key } });
+          throw limitExceeded(latest?.quantity ?? alreadyBought);
+        }
       }
 
-      const updatedPlayer = await tx.player.update({
-        where: { id: playerId },
+      const { count: debited } = await tx.player.updateMany({
+        where: { id: playerId, coins: { gte: totalCost } },
         data: { coins: { decrement: totalCost } },
       });
+      if (debited === 0) {
+        conflict();
+        const latest = await tx.player.findUnique({ where: { id: playerId } });
+        if (!latest) throw new DomainError('Jogador não encontrado.', 'PLAYER_NOT_FOUND', 404);
+        throw insufficientCoins(latest.coins);
+      }
+      const updatedPlayer = await tx.player.findUniqueOrThrow({ where: { id: playerId } });
 
       const inv = await tx.inventory.upsert({
         where: { playerId_itemId: { playerId, itemId: item.id } },
@@ -224,6 +245,6 @@ export class ShopService {
         remainingCoins: updatedPlayer.coins,
         newInventoryQuantity: inv.quantity,
       };
-    });
+    }))));
   }
 }

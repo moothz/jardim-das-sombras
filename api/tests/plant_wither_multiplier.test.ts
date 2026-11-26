@@ -38,7 +38,7 @@ describe('POST /farm/:user_id/plant: witherMultiplier (sem banco)', () => {
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     playerBuff: { findMany: vi.fn().mockResolvedValue([]) },
-    farmSlot: { update: vi.fn() },
+    farmSlot: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
     $transaction: vi.fn(async (cb) => cb(prisma)),
   } as any;
   let app: FastifyInstance;
