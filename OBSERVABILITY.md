@@ -95,6 +95,7 @@ nunca é gravada (pode conter texto do usuário, ex. `Planta desconhecida: "<tex
 | `farm sell` | `jds.sell.all`, `jds.sell.items`, `jds.sell.coins`; `quantity` inválido vira `app.outcome=rejected` com `app.reject.reason=invalid_quantity` |
 | `farm use` | — |
 | `farm decorate` | `jds.decorate.op` = equip/unequip/batch, `jds.decorate.count` |
+| `farm rename` | — (o nome nunca vai para o span); `farmName` que não é texto nem `null` vira `app.outcome=rejected` com `app.reject.reason=invalid_payload` |
 | `shop buy` | `jds.shop.quantity`, `jds.shop.item_id`, `jds.shop.cost` |
 | `inventory get` | `jds.inventory.found`, `jds.inventory.items` |
 | `economy summary` | `GET /internal/economy/summary` (painel da economia): `jds.economy.window_ms`, `jds.economy.full_history` (from=0), `jds.economy.balances` (false com `balances=0`), `jds.economy.accounts` e `jds.economy.holders` (ausentes com `balances=0`), `jds.economy.ledger_available` (false: o Jardim ainda não tem extrato). Sem ID de jogador; parâmetro inválido vira `app.outcome=rejected` |

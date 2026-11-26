@@ -384,6 +384,7 @@ Desequipa o item decorativo de determinado slot e retorna-o para a mochila.
 Atualiza o título/nome da fazenda do jogador.
 - **Autenticação:** `x-api-key` ou User Token
 - **Corpo:** `{"farmName": "Jardim das Almas Perdidas"}`
+- **Regras:** `farmName` é texto ou `null` (`null`, vazio ou ausente volta ao nome padrão). Caracteres de controle são removidos, as pontas são aparadas e o nome é cortado em 20 code points (um emoji simples conta como um). Outro tipo responde `400 INVALID_PAYLOAD`.
 - **Resposta Sucesso (200 OK):**
 ```json
 {
