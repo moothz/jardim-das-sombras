@@ -195,11 +195,11 @@ export class FarmService {
       }
     }
 
-    // 5. Daily bag luck multiplier (e.g. Filtro da Viúva 2.0x)
+    // 5. Daily bag luck multiplier (e.g. Filtro da Viúva 2.0x - non-stackable)
     let dailyLuckMultiplier = 1.0;
     for (const b of activeBuffs) {
       if (b.type === 'daily_bag_luck') {
-        dailyLuckMultiplier *= b.value;
+        dailyLuckMultiplier = Math.max(dailyLuckMultiplier, b.value);
       }
     }
 
@@ -1251,8 +1251,19 @@ export class FarmService {
       }
 
       case 'widows_filter': {
-        // Dobra a chance de itens especiais na bag diária durante 7 dias
+        // Dobra a chance de itens especiais na bag diária durante 7 dias (não acumulável)
         await this.prisma.$transaction(async (tx) => {
+          const existing = await tx.playerBuff.findFirst({
+            where: {
+              playerId,
+              type: 'daily_bag_luck',
+              expiresAt: { gt: now },
+            },
+          });
+          if (existing) {
+            throw new DomainError('Você já possui um Filtro da Viúva ativo!', 'MAX_BUFF_REACHED', 400);
+          }
+
           await this.decrementInventory(tx, playerId, consumableDef.id, 1, consumableDef.name);
 
           await tx.playerBuff.create({
