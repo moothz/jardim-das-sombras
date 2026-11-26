@@ -1,9 +1,6 @@
 import { PLANTS, DECORATIONS, CONSUMABLES } from '../../utils/catalog.js';
 import { t } from '../../utils/texts.js';
-
-function escapeHtml(str: string): string {
-  return str.replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m] || m);
-}
+import { escapeHtml, jsonForScript } from '../../utils/html.js';
 
 export interface AdminViewParams {
   status: any;
@@ -1560,11 +1557,11 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
 
   <script>
     // State initialization
-    const ADMIN_TOKEN = ${JSON.stringify(token)};
-    const USER_ID = ${JSON.stringify(status.playerId)};
-    const FARM_UUID = ${JSON.stringify(status.uuid)};
+    const ADMIN_TOKEN = ${jsonForScript(token)};
+    const USER_ID = ${jsonForScript(status.playerId)};
+    const FARM_UUID = ${jsonForScript(status.uuid)};
     const EXPIRES_AT = ${expiresAt};
-    let FARM_NAME = ${JSON.stringify(status.farmName || '')};
+    let FARM_NAME = ${jsonForScript(status.farmName || '')};
 
     function openFarmNameModal() {
       const modal = document.getElementById('farm-name-modal');
@@ -1725,18 +1722,18 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
         }
       } catch (e) {}
     }
-    const SLOT_COORDS = ${JSON.stringify(slotCoordinates)};
-    const PLANTS_INFO = ${JSON.stringify(plantCatalogMini)};
-    const DECOR_SPRITES = ${JSON.stringify(decorSpriteMap)};
+    const SLOT_COORDS = ${jsonForScript(slotCoordinates)};
+    const PLANTS_INFO = ${jsonForScript(plantCatalogMini)};
+    const DECOR_SPRITES = ${jsonForScript(decorSpriteMap)};
     function decorSpriteUrl(decorId) {
       return '/farm/sprites/decorations/' + (DECOR_SPRITES[decorId] || decorId) + '.png';
     }
 
     let currentCoins = ${status.coins};
-    let currentSlots = ${JSON.stringify(status.slots)};
-    let placedDecorations = ${JSON.stringify(status.decorations || [])};
-    let inventoryItems = ${JSON.stringify(inventoryItems)};
-    let shopCatalog = ${JSON.stringify(shopCatalog)};
+    let currentSlots = ${jsonForScript(status.slots)};
+    let placedDecorations = ${jsonForScript(status.decorations || [])};
+    let inventoryItems = ${jsonForScript(inventoryItems)};
+    let shopCatalog = ${jsonForScript(shopCatalog)};
 
     let activeDrag = null;
     let autoSaveTimeout = null;

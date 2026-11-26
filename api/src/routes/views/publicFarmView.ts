@@ -1,13 +1,14 @@
 import { t } from '../../utils/texts.js';
 import { config } from '../../config.js';
+import { escapeHtml, jsonForScript } from '../../utils/html.js';
 
 export function renderPublicFarmHtml(status: any, uuid: string): string {
   const imageUrl = `/farm/share/image?id=${encodeURIComponent(uuid)}`;
   const readyCount = status.slots.filter((s: any) => s.stage === 'ready').length;
   const growingCount = status.slots.filter((s: any) => s.stage === 'growing' || s.stage === 'seed').length;
   const farmSubtitle = status.farmName
-    ? `Santuário de Cultivo '${status.farmName}'`
-    : `Santuário de Cultivo de ${status.playerName || 'Jardineiro'}`;
+    ? `Santuário de Cultivo '${escapeHtml(status.farmName)}'`
+    : `Santuário de Cultivo de ${escapeHtml(status.playerName || 'Jardineiro')}`;
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -279,8 +280,8 @@ export function renderPublicFarmHtml(status: any, uuid: string): string {
         const savedSession = localStorage.getItem('jds_admin_session');
         if (savedSession) {
           const sess = JSON.parse(savedSession);
-          if (sess && sess.farmUuid === '${uuid}' && sess.token && sess.expiresAt > (Date.now() / 1000)) {
-            window.location.replace('/farm?id=' + encodeURIComponent('${uuid}') + '&token=' + encodeURIComponent(sess.token));
+          if (sess && sess.farmUuid === ${jsonForScript(uuid)} && sess.token && sess.expiresAt > (Date.now() / 1000)) {
+            window.location.replace('/farm?id=' + encodeURIComponent(${jsonForScript(uuid)}) + '&token=' + encodeURIComponent(sess.token));
           }
         }
       }

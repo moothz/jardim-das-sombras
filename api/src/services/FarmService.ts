@@ -285,8 +285,8 @@ export class FarmService {
   }
 
   public async updateFarmName(playerId: string, farmName: string | null) {
-    const trimmed = farmName ? farmName.trim() : null;
-    const finalName = trimmed && trimmed.length > 0 ? trimmed.substring(0, 20) : null;
+    const clean = (farmName ?? '').replace(/\p{Cc}/gu, '').trim();
+    const finalName = clean ? Array.from(clean).slice(0, 20).join('') : null;
     const updated = await this.prisma.player.update({
       where: { id: playerId },
       data: { farmName: finalName },

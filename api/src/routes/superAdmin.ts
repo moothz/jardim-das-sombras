@@ -116,7 +116,7 @@ export async function superAdminRoutes(fastify: FastifyInstance) {
   fastify.get('/super-admin', async (_req, reply) => {
     reply.header(
       'Content-Security-Policy',
-      "default-src 'self' 'unsafe-inline'; img-src * data: blob:; script-src 'self' 'unsafe-inline'; script-src-attr 'unsafe-inline'"
+      "default-src 'self' 'unsafe-inline'; img-src * data: blob:; script-src 'self' 'unsafe-inline'; script-src-attr 'unsafe-inline'; base-uri 'self'; object-src 'none'; form-action 'self'"
     );
     return reply.type('text/html').send(SUPER_ADMIN_HTML);
   });

@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs';
+import { z } from 'zod';
 import { FastifyPluginAsync, FastifyReply } from 'fastify';
 import { FarmService, parseSellQuantity } from '../services/FarmService.js';
 import { CanvasRendererService } from '../services/CanvasRendererService.js';
@@ -19,6 +20,8 @@ import {
 } from './views/publicFarmView.js';
 import { renderCalibrateHtml } from './views/calibrateView.js';
 import { withSpan, setAttrs, userIdAttr, markRejected, setRequestAttrs } from '../telemetry.js';
+
+const farmNameBody = z.object({ farmName: z.string().nullable().optional() });
 
 export const farmRoutes: FastifyPluginAsync = async (fastify) => {
   const farmService = new FarmService(fastify.prisma);
@@ -431,7 +434,7 @@ export const farmRoutes: FastifyPluginAsync = async (fastify) => {
     async (req, reply) => {
       reply.header(
         'Content-Security-Policy',
-        "default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src * data: blob:;"
+        "default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src * data: blob:; base-uri 'self'; object-src 'none'; form-action 'self';"
       );
 
       const uuid = req.query.id;
@@ -639,7 +642,7 @@ export const farmRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/calibrate', async (req, reply) => {
     reply.header(
       'Content-Security-Policy',
-      "default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src * data: blob:;"
+      "default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src * data: blob:; base-uri 'self'; object-src 'none'; form-action 'self';"
     );
     return reply.type('text/html').send(renderCalibrateHtml());
   });
@@ -710,13 +713,16 @@ export const farmRoutes: FastifyPluginAsync = async (fastify) => {
   // PATCH /farm/:user_id/name (Alterar nome da fazenda)
   fastify.patch<{
     Params: { user_id: string };
-    Body: { farmName?: string | null };
+    Body: unknown;
   }>(
     '/farm/:user_id/name',
     { preHandler: [requireAuth] },
     async (req, reply) => {
-      const { farmName } = req.body || {};
-      const updated = await farmService.updateFarmName(req.params.user_id, farmName || null);
+      const updated = await withSpan('farm rename', { attributes: { 'jds.user.id': userIdAttr(req.params.user_id) } }, async () => {
+        const body = farmNameBody.safeParse(req.body ?? {});
+        if (!body.success) throw new DomainError('O campo farmName deve ser texto ou null.', 'INVALID_PAYLOAD', 400);
+        return farmService.updateFarmName(req.params.user_id, body.data.farmName ?? null);
+      });
       return reply.send({
         success: true,
         farmName: updated.farmName,
