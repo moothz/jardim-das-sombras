@@ -27,6 +27,7 @@ model Player {
   purchases       DailyPurchase[]
   buffs           PlayerBuff[]
   harvestTotals   CropHarvestTotal[]
+  events          FarmEvent[]
 
   @@index([coins(sort: Desc)])
   @@index([totalHarvested(sort: Desc)])
@@ -121,4 +122,20 @@ model PlayerBuff {
 
   @@index([playerId, type])
   @@map("player_buffs")
+}
+
+model FarmEvent {
+  id         Int      @id @default(autoincrement())
+  playerId   String
+  player     Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  type       String   // "plant" | "harvest" | "wither" | "buy" | "sell" | "daily" | "use_consumable" | "transfer_in" | "transfer_out" | "admin_give" | "give_all"
+  itemId     String?
+  quantity   Int      @default(0)
+  coinsDelta Int      @default(0) @map("coins_delta")
+  source     String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([playerId, createdAt])
+  @@index([playerId, type, createdAt])
+  @@map("farm_events")
 }

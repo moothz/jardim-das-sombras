@@ -90,6 +90,7 @@ Rotas de consulta pública (`GET /health`, `GET /farm/:user_id`, `GET /farm/:use
 | `POST` | `/farm/:user_id/decorate` | `API_KEY` | `{"decorId": 13, "slotIndex": 1}` ou `{"decorId": 13, "x": 200, "y": 750}` | Posiciona item decorativo por slot periférico (1 a 4) ou coordenadas livres `(x, y)`. |
 | `POST` | `/farm/:user_id/sell` | `API_KEY` | `{"all": true}` ou `{"itemId": "crop_01_nightshade", "quantity": 5}` | Vende colheitas do inventário por Petalitas. `quantity` é um número inteiro maior que zero: omitido vale 1, acima do estoque vende o que houver, outro valor volta 400 `INVALID_QUANTITY`. Enfeites VIP têm venda bloqueada. |
 | `GET` | `/farm/:user_id/harvest-totals` | `API_KEY` | Nenhum | Retorna o total acumulado histórico colhido de cada planta (para reconciliação de bônus). |
+| `GET` | `/farm/:user_id/summary` | `API_KEY` ou Bearer | Nenhum | Retorna o resumo consolidado do jogador (hoje, 7d, 15d, 30d e totais) para a aba Resumo. |
 
 ---
 

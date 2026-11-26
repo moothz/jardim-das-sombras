@@ -101,6 +101,7 @@ nunca é gravada (pode conter texto do usuário, ex. `Planta desconhecida: "<tex
 | `farm use` | — |
 | `farm decorate` | `jds.decorate.op` = equip/unequip/batch, `jds.decorate.count` |
 | `farm rename` | — (o nome nunca vai para o span); `farmName` que não é texto nem `null` vira `app.outcome=rejected` com `app.reject.reason=invalid_payload` |
+| `farm summary` | `GET /farm/:user_id/summary`: `jds.summary.events`, `jds.summary.total_planted`, `jds.summary.total_harvested` |
 | `shop buy` | `jds.shop.quantity`, `jds.shop.item_id`, `jds.shop.cost` |
 | `shop buy` | `jds.shop.quantity`, `jds.shop.item_id`, `jds.shop.cost`; `jds.tx.conflict=true` quando outra compra gastou o saldo ou o limite diário entre a leitura e a gravação (vira `insufficient_coins` ou `player_limit_exceeded`) |
 | `shop buy tx` | transação da compra; filhos `shop buy tx.begin`/`.write`/`.commit` |

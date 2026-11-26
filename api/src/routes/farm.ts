@@ -3,6 +3,7 @@ import fs from 'fs';
 import { z } from 'zod';
 import { FastifyPluginAsync, FastifyReply } from 'fastify';
 import { FarmService, parseSellQuantity } from '../services/FarmService.js';
+import { FarmSummaryService } from '../services/FarmSummaryService.js';
 import { CanvasRendererService } from '../services/CanvasRendererService.js';
 import { requireAuth, isTrustedRequest } from '../plugins/auth.js';
 import { config } from '../config.js';
@@ -25,6 +26,7 @@ const farmNameBody = z.object({ farmName: z.string().nullable().optional() });
 
 export const farmRoutes: FastifyPluginAsync = async (fastify) => {
   const farmService = new FarmService(fastify.prisma);
+  const farmSummaryService = new FarmSummaryService(fastify.prisma);
   const shopService = new ShopService(fastify.prisma);
 
   function formatConciseTime(totalSeconds: number): string {
@@ -546,6 +548,21 @@ export const farmRoutes: FastifyPluginAsync = async (fastify) => {
     async (req, reply) => {
       const totals = await farmService.getHarvestTotals(req.params.user_id);
       return reply.send({ userId: req.params.user_id, totals });
+    }
+  );
+
+  // GET /farm/:user_id/summary
+  // Resumo consolidado do jogador (hoje, 7d, 15d, 30d, totais) para a aba Resumo do painel web.
+  fastify.get<{ Params: { user_id: string } }>(
+    '/farm/:user_id/summary',
+    { preHandler: [requireAuth] },
+    async (req, reply) => {
+      const summary = await withSpan(
+        'farm summary',
+        { attributes: { 'jds.user.id': userIdAttr(req.params.user_id) } },
+        () => farmSummaryService.getPlayerSummary(req.params.user_id),
+      );
+      return reply.send(summary);
     }
   );
 

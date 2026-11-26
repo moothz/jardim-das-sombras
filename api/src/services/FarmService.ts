@@ -349,6 +349,30 @@ export class FarmService {
     }
   }
 
+  private async recordEvents(
+    tx: Prisma.TransactionClient,
+    events: Array<{
+      playerId: string;
+      type: string;
+      itemId?: string | null;
+      quantity?: number;
+      coinsDelta?: number;
+      source?: string | null;
+    }>
+  ) {
+    if (events.length === 0 || !tx.farmEvent?.createMany) return;
+    await tx.farmEvent.createMany({
+      data: events.map((ev) => ({
+        playerId: ev.playerId,
+        type: ev.type,
+        itemId: ev.itemId ?? null,
+        quantity: ev.quantity ?? 0,
+        coinsDelta: ev.coinsDelta ?? 0,
+        source: ev.source ?? null,
+      })),
+    });
+  }
+
   public async plant(
     playerId: string,
     options: { itemId: string | number; slot?: number; random?: boolean; amount?: number; witherMultiplier?: number }
@@ -454,6 +478,19 @@ export class FarmService {
           ...(witheredReplaced > 0 ? { totalWithered: { increment: witheredReplaced } } : {}),
         },
       });
+
+      const events: Array<{
+        playerId: string;
+        type: string;
+        itemId?: string | null;
+        quantity?: number;
+        coinsDelta?: number;
+        source?: string | null;
+      }> = [{ playerId, type: 'plant', itemId: plantDef.id, quantity: plantedCount, source: 'farm' }];
+      if (witheredReplaced > 0) {
+        events.push({ playerId, type: 'wither', quantity: witheredReplaced, source: 'farm' });
+      }
+      await this.recordEvents(tx, events);
     }))));
 
     CanvasRendererService.clearRenderCache();
@@ -578,6 +615,26 @@ export class FarmService {
             });
           }
 
+          const harvestEvents: Array<{
+            playerId: string;
+            type: string;
+            itemId?: string | null;
+            quantity?: number;
+            coinsDelta?: number;
+            source?: string | null;
+          }> = Object.values(map).map((it) => ({
+            playerId,
+            type: 'harvest',
+            itemId: `crop_${it.plantId}`,
+            quantity: it.count,
+            coinsDelta: it.coinsEarned,
+            source: 'farm',
+          }));
+          if (witheredCount > 0) {
+            harvestEvents.push({ playerId, type: 'wither', quantity: witheredCount, source: 'farm' });
+          }
+          await this.recordEvents(tx, harvestEvents);
+
           return { totalCoinsEarned: coins, harvestedMap: map, clearedWitheredCount: witheredCount };
         }))),
     );
@@ -697,6 +754,20 @@ export class FarmService {
             update: { quantity: { increment: item.count } },
           });
         }
+
+        const dailyEvents: Array<{
+          playerId: string;
+          type: string;
+          itemId?: string | null;
+          quantity?: number;
+          coinsDelta?: number;
+          source?: string | null;
+        }> = [{ playerId, type: 'daily', quantity: 1, coinsDelta: coinsWon, source: 'daily_bag' }];
+        for (const item of seedsWon) {
+          dailyEvents.push({ playerId, type: 'daily_item', itemId: item.itemId, quantity: item.count, source: 'daily_bag' });
+        }
+        await this.recordEvents(tx, dailyEvents);
+
         return true;
       }))));
 
@@ -956,6 +1027,18 @@ export class FarmService {
       for (const it of itemsToSell) {
         await this.decrementInventory(tx, playerId, it.itemId, it.quantity, it.name);
       }
+
+      await this.recordEvents(
+        tx,
+        itemsToSell.map((it) => ({
+          playerId,
+          type: 'sell',
+          itemId: it.itemId,
+          quantity: it.quantity,
+          coinsDelta: it.unitPrice * it.quantity,
+          source: 'farm',
+        }))
+      );
     });
 
     return {
@@ -1010,6 +1093,7 @@ export class FarmService {
 
         await this.prisma.$transaction(async (tx) => {
           await this.decrementInventory(tx, playerId, consumableDef.id, 1, consumableDef.name);
+          await this.recordEvents(tx, [{ playerId, type: 'use_consumable', itemId: consumableDef.id, quantity: 1, source: 'farm' }]);
 
           await tx.farmSlot.update({
             where: { id: targetSlot.id },
@@ -1066,6 +1150,7 @@ export class FarmService {
 
         await this.prisma.$transaction(async (tx) => {
           await this.decrementInventory(tx, playerId, consumableDef.id, 1, consumableDef.name);
+          await this.recordEvents(tx, [{ playerId, type: 'use_consumable', itemId: consumableDef.id, quantity: 1, source: 'farm' }]);
 
           for (const s of plantedSlots) {
             await tx.farmSlot.update({
@@ -1118,6 +1203,7 @@ export class FarmService {
 
         await this.prisma.$transaction(async (tx) => {
           await this.decrementInventory(tx, playerId, consumableDef.id, 1, consumableDef.name);
+          await this.recordEvents(tx, [{ playerId, type: 'use_consumable', itemId: consumableDef.id, quantity: 1, source: 'farm' }]);
 
           for (const s of growingSlots) {
             await tx.farmSlot.update({
@@ -1148,6 +1234,7 @@ export class FarmService {
 
         await this.prisma.$transaction(async (tx) => {
           await this.decrementInventory(tx, playerId, consumableDef.id, 1, consumableDef.name);
+          await this.recordEvents(tx, [{ playerId, type: 'use_consumable', itemId: consumableDef.id, quantity: 1, source: 'farm' }]);
 
           // Halve remaining time for currently growing plants
           for (const s of growingSlots) {
@@ -1183,6 +1270,7 @@ export class FarmService {
         // Aumenta petalitas em +10% permanente (aditivo)
         await this.prisma.$transaction(async (tx) => {
           await this.decrementInventory(tx, playerId, consumableDef.id, 1, consumableDef.name);
+          await this.recordEvents(tx, [{ playerId, type: 'use_consumable', itemId: consumableDef.id, quantity: 1, source: 'farm' }]);
 
           await tx.playerBuff.create({
             data: {
@@ -1230,6 +1318,7 @@ export class FarmService {
 
         await this.prisma.$transaction(async (tx) => {
           await this.decrementInventory(tx, playerId, consumableDef.id, 1, consumableDef.name);
+          await this.recordEvents(tx, [{ playerId, type: 'use_consumable', itemId: consumableDef.id, quantity: 1, source: 'farm' }]);
 
           await tx.playerBuff.create({
             data: {
@@ -1257,6 +1346,7 @@ export class FarmService {
         // Aumenta em +5% permanentemente a chance de itens especiais na bag diária (aditivo)
         await this.prisma.$transaction(async (tx) => {
           await this.decrementInventory(tx, playerId, consumableDef.id, 1, consumableDef.name);
+          await this.recordEvents(tx, [{ playerId, type: 'use_consumable', itemId: consumableDef.id, quantity: 1, source: 'farm' }]);
 
           await tx.playerBuff.create({
             data: {
@@ -1295,6 +1385,7 @@ export class FarmService {
           }
 
           await this.decrementInventory(tx, playerId, consumableDef.id, 1, consumableDef.name);
+          await this.recordEvents(tx, [{ playerId, type: 'use_consumable', itemId: consumableDef.id, quantity: 1, source: 'farm' }]);
 
           await tx.playerBuff.create({
             data: {

@@ -602,6 +602,173 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
       display: flex;
     }
 
+    /* Summary Tab */
+    .summary-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .btn-summary-refresh {
+      background: #241638;
+      border: 1px solid #6b419c;
+      color: #e8d8be;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .btn-summary-refresh:hover {
+      background: #362154;
+      border-color: #ffd978;
+    }
+    .summary-periods {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      background: #0d0717;
+      padding: 0.35rem;
+      border-radius: 8px;
+      border: 1px solid #3d235a;
+    }
+    .summary-period-btn {
+      flex: 1;
+      min-width: 62px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: #9f8fb3;
+      padding: 0.42rem 0.55rem;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+    .summary-period-btn:hover {
+      color: #e8d8be;
+      background: rgba(107, 65, 156, 0.2);
+    }
+    .summary-period-btn.active {
+      color: #140d21;
+      background: #ffd978;
+      border-color: #ffd978;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.6rem;
+    }
+    @media (max-width: 600px) {
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    .summary-kpi {
+      background: rgba(25, 16, 40, 0.9);
+      border: 1px solid #3d235a;
+      border-radius: 8px;
+      padding: 0.65rem 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+    .summary-kpi-label {
+      font-size: 0.72rem;
+      color: #a998be;
+      font-weight: 600;
+    }
+    .summary-kpi-value {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #f3ead8;
+      font-family: 'Fira Code', monospace;
+    }
+    .summary-kpi-sub {
+      font-size: 0.68rem;
+      color: #8c7d9e;
+    }
+    .summary-card {
+      background: rgba(17, 11, 29, 0.9);
+      border: 1px solid #3d235a;
+      border-radius: 10px;
+      padding: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+    .summary-card-title {
+      font-family: 'Cinzel', serif;
+      font-size: 0.88rem;
+      color: #ffd978;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(90, 58, 125, 0.45);
+      padding-bottom: 0.35rem;
+    }
+    .summary-flow-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.5rem;
+    }
+    .summary-flow-pill {
+      background: #0d0717;
+      border: 1px solid #2f1b47;
+      border-radius: 7px;
+      padding: 0.45rem 0.55rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .summary-breakdown {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.35rem 0.75rem;
+      font-size: 0.76rem;
+    }
+    @media (max-width: 520px) {
+      .summary-breakdown {
+        grid-template-columns: 1fr;
+      }
+    }
+    .summary-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #cbbcd9;
+      padding: 0.18rem 0;
+      border-bottom: 1px dashed rgba(90, 58, 125, 0.25);
+    }
+    .summary-line strong {
+      font-family: 'Fira Code', monospace;
+      font-size: 0.75rem;
+    }
+    .summary-top-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      font-size: 0.76rem;
+    }
+    .summary-top-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(28, 18, 45, 0.75);
+      border: 1px solid rgba(90, 58, 125, 0.35);
+      border-radius: 6px;
+      padding: 0.32rem 0.55rem;
+    }
+    .summary-empty {
+      color: #8c7d9e;
+      font-size: 0.76rem;
+      font-style: italic;
+    }
+
     /* Lists and Cards */
     .section-title {
       font-size: 1rem;
@@ -1478,6 +1645,7 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
         <button class="tab-btn active" data-tab="tab-inventory">🎒 Inventário</button>
         <button class="tab-btn" data-tab="tab-shop">🏪 Loja</button>
         <button class="tab-btn" data-tab="tab-sell">🌾 Vender</button>
+        <button class="tab-btn" data-tab="tab-summary">📊 Resumo</button>
       </nav>
 
       <!-- Tab 1: Inventário -->
@@ -1530,6 +1698,24 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
           <button class="btn-action sell-all" id="btn-sell-all" data-action-key="sell:all" style="flex:none; padding:0.45rem 1rem;">🌱 Vender Todas as Colheitas</button>
         </div>
         <div class="items-grid" id="sell-items-list" style="margin-top:0.75rem;"></div>
+      </div>
+
+      <!-- Tab 4: Resumo -->
+      <div class="tab-content" id="tab-summary">
+        <div class="summary-header">
+          <h3 class="section-title" style="border:none; padding:0;">📊 Resumo da Fazenda</h3>
+          <button type="button" class="btn-summary-refresh" id="btn-refresh-summary">🔄 Atualizar</button>
+        </div>
+        <div class="summary-periods" id="summary-periods-bar" role="tablist" aria-label="Período do resumo">
+          <button type="button" class="summary-period-btn active" data-period="today">Hoje</button>
+          <button type="button" class="summary-period-btn" data-period="d7">7 dias</button>
+          <button type="button" class="summary-period-btn" data-period="d15">15 dias</button>
+          <button type="button" class="summary-period-btn" data-period="d30">30 dias</button>
+          <button type="button" class="summary-period-btn" data-period="total">Totais</button>
+        </div>
+        <div id="summary-body">
+          <p class="summary-empty">Carregando estatísticas do santuário...</p>
+        </div>
       </div>
     </div>
   </main>
@@ -3464,6 +3650,10 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
         const targetContent = document.getElementById(targetId);
         if (targetContent) targetContent.classList.add('active');
 
+        if (targetId === 'tab-summary') {
+          loadFarmSummary(false);
+        }
+
         // Layouts de página única (mobile/tablet): se o jogador trocou de aba com a
         // lista rolada, leva ao início do novo conteúdo em vez de deixá-lo no meio.
         const sidebar = document.querySelector('.sidebar-column');
@@ -3472,6 +3662,217 @@ export function renderAdminFarmHtml(params: AdminViewParams): string {
         }
       });
     });
+
+    // 9.1. Aba de Resumo
+    let farmSummaryCache = null;
+    let activeSummaryPeriod = 'today';
+
+    function escapeHtmlClient(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function fmtNum(n) {
+      return Number(n || 0).toLocaleString('pt-BR');
+    }
+
+    function renderTopListHtml(items, emptyText) {
+      if (!items || items.length === 0) {
+        return '<div class="summary-empty">' + escapeHtmlClient(emptyText) + '</div>';
+      }
+      return '<div class="summary-top-list">' + items.map((it, idx) =>
+        '<div class="summary-top-item">' +
+          '<span>' + (idx + 1) + '. ' + escapeHtmlClient(it.name) + '</span>' +
+          '<strong>' + fmtNum(it.quantity) + 'x</strong>' +
+        '</div>'
+      ).join('') + '</div>';
+    }
+
+    function renderFarmSummary() {
+      const bodyEl = document.getElementById('summary-body');
+      if (!bodyEl || !farmSummaryCache) return;
+
+      const data = farmSummaryCache;
+      const p = (data.periods && data.periods[activeSummaryPeriod]) || null;
+      if (!p) {
+        bodyEl.innerHTML = '<p class="summary-empty">Sem dados para este período.</p>';
+        return;
+      }
+
+      const periodLabels = {
+        today: 'Hoje (ciclo atual)',
+        d7: 'Últimos 7 dias',
+        d15: 'Últimos 15 dias',
+        d30: 'Últimos 30 dias',
+        total: 'Todo o histórico',
+      };
+
+      const netColor = p.coins.net > 0 ? '#55f3a0' : p.coins.net < 0 ? '#ff7b8a' : '#ffd978';
+      const netPrefix = p.coins.net > 0 ? '+' : '';
+      const inv = data.inventorySummary || {};
+      const slots = data.slotsSummary || {};
+      const cls = p.classifieds || {};
+
+      bodyEl.innerHTML =
+        '<div style="display:flex; flex-direction:column; gap:0.85rem;">' +
+          '<div class="summary-grid">' +
+            '<div class="summary-kpi">' +
+              '<span class="summary-kpi-label">🌱 Plantios</span>' +
+              '<span class="summary-kpi-value" style="color:#55f3a0;">' + fmtNum(p.planted) + '</span>' +
+              '<span class="summary-kpi-sub">' + escapeHtmlClient(periodLabels[activeSummaryPeriod] || '') + '</span>' +
+            '</div>' +
+            '<div class="summary-kpi">' +
+              '<span class="summary-kpi-label">🌾 Colheitas</span>' +
+              '<span class="summary-kpi-value" style="color:#ffd978;">' + fmtNum(p.harvested) + '</span>' +
+              '<span class="summary-kpi-sub">' + fmtNum(p.itemsSold) + ' vendidas</span>' +
+            '</div>' +
+            '<div class="summary-kpi">' +
+              '<span class="summary-kpi-label">🥀 Mortes / Murchas</span>' +
+              '<span class="summary-kpi-value" style="color:#ff7b8a;">' + fmtNum(p.withered) + '</span>' +
+              '<span class="summary-kpi-sub">canteiros perdidos</span>' +
+            '</div>' +
+            '<div class="summary-kpi">' +
+              '<span class="summary-kpi-label">🛒 Sementes Compradas</span>' +
+              '<span class="summary-kpi-value" style="color:#dfb2ff;">' + fmtNum(p.seedsBought) + '</span>' +
+              '<span class="summary-kpi-sub">' + fmtNum(p.itemsBought) + ' itens no total</span>' +
+            '</div>' +
+            '<div class="summary-kpi">' +
+              '<span class="summary-kpi-label">🎒 Sacolas & Elixires</span>' +
+              '<span class="summary-kpi-value">' + fmtNum(p.dailyBagsOpened) + ' / ' + fmtNum(p.consumablesUsed) + '</span>' +
+              '<span class="summary-kpi-sub">sacolas / consumíveis</span>' +
+            '</div>' +
+            '<div class="summary-kpi">' +
+              '<span class="summary-kpi-label">📦 Itens no Inventário</span>' +
+              '<span class="summary-kpi-value">' + fmtNum(inv.totalItems) + '</span>' +
+              '<span class="summary-kpi-sub">' + fmtNum(inv.seedsCount) + ' sem. · ' + fmtNum(inv.cropsCount) + ' colh.</span>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="summary-card">' +
+            '<div class="summary-card-title">' +
+              '<span>🌸 Movimentação de Petalitas</span>' +
+              '<small style="font-family:Plus Jakarta Sans,sans-serif; font-size:0.74rem; color:#cbbcd9;">Saldo atual: ' + fmtNum(data.coins) + ' Ptl</small>' +
+            '</div>' +
+            '<div class="summary-flow-row">' +
+              '<div class="summary-flow-pill">' +
+                '<span class="summary-kpi-label">Entradas</span>' +
+                '<strong style="color:#55f3a0; font-size:0.95rem;">+' + fmtNum(p.coins.earned) + '</strong>' +
+              '</div>' +
+              '<div class="summary-flow-pill">' +
+                '<span class="summary-kpi-label">Saídas</span>' +
+                '<strong style="color:#ff7b8a; font-size:0.95rem;">-' + fmtNum(p.coins.spent) + '</strong>' +
+              '</div>' +
+              '<div class="summary-flow-pill">' +
+                '<span class="summary-kpi-label">Saldo Líquido</span>' +
+                '<strong style="color:' + netColor + '; font-size:0.95rem;">' + netPrefix + fmtNum(p.coins.net) + '</strong>' +
+              '</div>' +
+            '</div>' +
+            '<div class="summary-breakdown">' +
+              '<div class="summary-line"><span>🌾 Bônus de colheita</span><strong style="color:#55f3a0;">+' + fmtNum(p.coins.fromHarvest) + '</strong></div>' +
+              '<div class="summary-line"><span>🏪 Gasto na loja</span><strong style="color:#ff7b8a;">-' + fmtNum(p.coins.spentShop) + '</strong></div>' +
+              '<div class="summary-line"><span>💰 Venda de colheitas</span><strong style="color:#55f3a0;">+' + fmtNum(p.coins.fromSales) + '</strong></div>' +
+              '<div class="summary-line"><span>🔄 Classificados (enviadas)</span><strong style="color:#ff7b8a;">-' + fmtNum(p.coins.spentClassifiedsOut) + '</strong></div>' +
+              '<div class="summary-line"><span>🎒 Sacola do Coveiro</span><strong style="color:#55f3a0;">+' + fmtNum(p.coins.fromDailyBag) + '</strong></div>' +
+              '<div class="summary-line"><span>🎁 Eventos / Prêmios</span><strong style="color:#55f3a0;">+' + fmtNum(p.coins.fromAdmin) + '</strong></div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="summary-card">' +
+            '<div class="summary-card-title">' +
+              '<span>🏷️ Classificados Waifuletes & Trocas</span>' +
+              '<small style="font-family:Plus Jakarta Sans,sans-serif; font-size:0.74rem; color:#cbbcd9;">' + fmtNum(cls.itemsSent) + ' env. · ' + fmtNum(cls.itemsReceived) + ' rec.</small>' +
+            '</div>' +
+            '<div class="summary-breakdown">' +
+              '<div class="summary-line"><span>🌸 Petalitas recebidas</span><strong style="color:#55f3a0;">+' + fmtNum(cls.coinsReceived) + '</strong></div>' +
+              '<div class="summary-line"><span>🌸 Petalitas enviadas</span><strong style="color:#ff7b8a;">-' + fmtNum(cls.coinsSent) + '</strong></div>' +
+              '<div class="summary-line"><span>📤 Itens enviados</span><strong>' + fmtNum(cls.itemsSent) + 'x</strong></div>' +
+              '<div class="summary-line"><span>📥 Itens recebidos</span><strong>' + fmtNum(cls.itemsReceived) + 'x</strong></div>' +
+            '</div>' +
+            ((cls.topSentItems && cls.topSentItems.length > 0) || (cls.topReceivedItems && cls.topReceivedItems.length > 0)
+              ? '<div class="summary-breakdown" style="margin-top:0.25rem;">' +
+                  '<div><div class="summary-kpi-label" style="margin-bottom:0.25rem;">Mais enviados</div>' + renderTopListHtml(cls.topSentItems, 'Nenhum envio') + '</div>' +
+                  '<div><div class="summary-kpi-label" style="margin-bottom:0.25rem;">Mais recebidos</div>' + renderTopListHtml(cls.topReceivedItems, 'Nenhum recebimento') + '</div>' +
+                '</div>'
+              : '<div class="summary-empty">Nenhuma negociação nos classificados neste período.</div>') +
+          '</div>' +
+
+          '<div class="summary-card">' +
+            '<div class="summary-card-title">' +
+              '<span>🏡 Situação Atual do Santuário</span>' +
+              '<small style="font-family:Plus Jakarta Sans,sans-serif; font-size:0.74rem; color:#55f3a0;">Colheitas estocadas: ~' + fmtNum(inv.estimatedCropsSellValue) + ' Ptl</small>' +
+            '</div>' +
+            '<div class="summary-breakdown">' +
+              '<div class="summary-line"><span>🌱 Sementes</span><strong>' + fmtNum(inv.seedsCount) + ' (' + fmtNum(inv.seedsDistinct) + ' tipos)</strong></div>' +
+              '<div class="summary-line"><span>🌾 Colheitas prontas</span><strong>' + fmtNum(inv.cropsCount) + ' (' + fmtNum(inv.cropsDistinct) + ' tipos)</strong></div>' +
+              '<div class="summary-line"><span>⚗️ Consumíveis</span><strong>' + fmtNum(inv.consumablesCount) + '</strong></div>' +
+              '<div class="summary-line"><span>🏛️ Enfeites (equipados)</span><strong>' + fmtNum(inv.decorationsCount) + ' (' + fmtNum(inv.equippedDecorationsCount) + '/10)</strong></div>' +
+              '<div class="summary-line"><span>🪴 Canteiros vivos</span><strong>' + fmtNum(slots.growing) + ' crescendo · ' + fmtNum(slots.ready) + ' prontos</strong></div>' +
+              '<div class="summary-line"><span>🥀 Vazios / Murchos</span><strong>' + fmtNum(slots.empty) + ' vazios · ' + fmtNum(slots.withered) + ' murchos</strong></div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="summary-card">' +
+            '<div class="summary-card-title"><span>🏆 Destaques do Período</span></div>' +
+            '<div class="summary-breakdown">' +
+              '<div><div class="summary-kpi-label" style="margin-bottom:0.25rem;">Mais Plantadas</div>' + renderTopListHtml(p.topPlanted, 'Nenhum plantio registrado') + '</div>' +
+              '<div><div class="summary-kpi-label" style="margin-bottom:0.25rem;">Mais Colhidas</div>' + renderTopListHtml(p.topHarvested, 'Nenhuma colheita registrada') + '</div>' +
+            '</div>' +
+            '<div style="margin-top:0.25rem;">' +
+              '<div class="summary-kpi-label" style="margin-bottom:0.25rem;">Mais Compradas na Loja</div>' +
+              renderTopListHtml(p.topBought, 'Nenhuma compra registrada') +
+            '</div>' +
+          '</div>' +
+        '</div>';
+    }
+
+    async function loadFarmSummary(forceRefresh) {
+      const bodyEl = document.getElementById('summary-body');
+      if (!bodyEl) return;
+      if (farmSummaryCache && !forceRefresh) {
+        renderFarmSummary();
+        return;
+      }
+
+      bodyEl.innerHTML = '<p class="summary-empty">Carregando estatísticas do santuário...</p>';
+      try {
+        const res = await fetch('/farm/' + USER_ID + '/summary', {
+          headers: { 'Authorization': 'Bearer ' + ADMIN_TOKEN },
+        });
+        if (res.status === 401 || res.status === 403) {
+          document.getElementById('expired-modal').style.display = 'flex';
+          return;
+        }
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          bodyEl.innerHTML = '<p class="summary-empty" style="color:#ff7b8a;">Falha ao carregar resumo: ' + escapeHtmlClient(errData.message || ('HTTP ' + res.status)) + '</p>';
+          return;
+        }
+        farmSummaryCache = await res.json();
+        renderFarmSummary();
+      } catch (err) {
+        bodyEl.innerHTML = '<p class="summary-empty" style="color:#ff7b8a;">Erro de conexão ao buscar resumo.</p>';
+      }
+    }
+
+    document.querySelectorAll('.summary-period-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.summary-period-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeSummaryPeriod = btn.getAttribute('data-period') || 'today';
+        renderFarmSummary();
+      });
+    });
+
+    const refreshSummaryBtn = document.getElementById('btn-refresh-summary');
+    if (refreshSummaryBtn) {
+      refreshSummaryBtn.addEventListener('click', () => {
+        loadFarmSummary(true);
+      });
+    }
 
     document.getElementById('btn-sell-all').addEventListener('click', (event) => {
       const hadCrops = sellableCrops().length > 0;
