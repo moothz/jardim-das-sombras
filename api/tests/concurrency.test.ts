@@ -67,6 +67,9 @@ describe.skipIf(!DB_URL)('gravação condicional sob requisições simultâneas 
   const player = () =>
     app.prisma.player.findUniqueOrThrow({ where: { id: PLAYER }, include: { inventory: true, harvestTotals: true } });
 
+  const events = (type: string) =>
+    app.prisma.farmEvent.findMany({ where: { playerId: PLAYER, type }, select: { quantity: true, coinsDelta: true } });
+
   async function resetPlayer(data: { coins?: number; lastDailyAt?: Date | null; slots?: object[]; inventory?: object[] } = {}) {
     await app.prisma.player.deleteMany({});
     await app.prisma.player.create({
@@ -119,6 +122,7 @@ describe.skipIf(!DB_URL)('gravação condicional sob requisições simultâneas 
       expect(p.inventory.find((i) => i.itemId === `crop_${REWARD_PLANT.id}`)?.quantity).toBe(1);
       expect(p.harvestTotals.find((t) => t.itemId === `crop_${REWARD_PLANT.id}`)?.totalHarvested).toBe(1);
       expect(notify.mock.calls.flatMap(([, items]) => items).reduce((n, it) => n + it.count, 0)).toBe(1);
+      expect(await events('harvest')).toEqual([{ quantity: 1, coinsDelta: ok.totalCoinsEarned }]);
     }
   });
 
@@ -137,6 +141,9 @@ describe.skipIf(!DB_URL)('gravação condicional sob requisições simultâneas 
       expect(p.coins).toBe(1000 + coins);
       expect(p.totalHarvested).toBe(3);
       expect(p.inventory.find((i) => i.itemId === `crop_${REWARD_PLANT.id}`)?.quantity).toBe(3);
+      const harvestEvents = await events('harvest');
+      expect(harvestEvents.reduce((n, e) => n + e.quantity, 0)).toBe(3);
+      expect(harvestEvents.reduce((n, e) => n + e.coinsDelta, 0)).toBe(coins);
     }
   });
 
@@ -154,6 +161,7 @@ describe.skipIf(!DB_URL)('gravação condicional sob requisições simultâneas 
       expect(p.coins).toBe(1000 + claimed[0].coinsWon);
       const seeds = p.inventory.reduce((n, i) => n + i.quantity, 0);
       expect(seeds).toBe(claimed[0].itemsWon.reduce((n: number, i: { count: number }) => n + i.count, 0));
+      expect(await events('daily')).toEqual([{ quantity: 1, coinsDelta: claimed[0].coinsWon }]);
     }
   });
 
@@ -167,6 +175,7 @@ describe.skipIf(!DB_URL)('gravação condicional sob requisições simultâneas 
       const p = await player();
       expect(p.coins).toBe(0);
       expect(p.inventory.find((i) => i.itemId === SEED.id)?.quantity).toBe(1);
+      expect(await events('buy')).toEqual([{ quantity: 1, coinsDelta: -SEED.seedPrice }]);
     }
   });
 
@@ -190,6 +199,7 @@ describe.skipIf(!DB_URL)('gravação condicional sob requisições simultâneas 
       const p = await player();
       expect(p.coins).toBe(100_000 - okCount * quantity * SEED.seedPrice);
       expect(p.inventory.find((i) => i.itemId === SEED.id)?.quantity).toBe(okCount * quantity);
+      expect(await events('buy')).toEqual(Array(okCount).fill({ quantity, coinsDelta: -quantity * SEED.seedPrice }));
     }
   });
 
@@ -214,6 +224,7 @@ describe.skipIf(!DB_URL)('gravação condicional sob requisições simultâneas 
       const p = await player();
       expect(p.inventory.find((i) => i.itemId === SEED.id)?.quantity).toBe(BURST - 1);
       expect(p.totalPlanted).toBe(1);
+      expect(await events('plant')).toEqual([{ quantity: 1, coinsDelta: 0 }]);
     }
   });
 
@@ -231,6 +242,7 @@ describe.skipIf(!DB_URL)('gravação condicional sob requisições simultâneas 
       expect(codesOf(res)).toEqual([200, ...Array(BURST - 1).fill('400 INSUFFICIENT_COINS')]);
       expect((await player()).coins).toBe(0);
       expect((await app.prisma.player.findUniqueOrThrow({ where: { id: RECEIVER } })).coins).toBe(100);
+      expect(await events('transfer_out')).toEqual([{ quantity: 0, coinsDelta: -100 }]);
     }
   });
 });

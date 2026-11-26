@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PLANTS, DECORATIONS, CONSUMABLES, findPlant } from '../utils/catalog.js';
 import { FarmService } from './FarmService.js';
+import { getDailyResetDate } from './ShopService.js';
 import { setAttrs } from '../telemetry.js';
 
 export type SummaryPeriodKey = 'today' | 'd7' | 'd15' | 'd30' | 'total';
@@ -77,16 +78,7 @@ export interface PlayerFarmSummary {
   periods: Record<SummaryPeriodKey, PeriodSummary>;
 }
 
-/**
- * Início do ciclo diário atual do Jardim (03:00 BRT = 06:00 UTC).
- */
-export function getDailyCycleStart(now: Date = new Date()): Date {
-  const reset = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 6, 0, 0, 0));
-  if (now.getTime() < reset.getTime()) {
-    reset.setUTCDate(reset.getUTCDate() - 1);
-  }
-  return reset;
-}
+export const getDailyCycleStart = getDailyResetDate;
 
 export function resolveItemDisplayName(itemId: string | null): string {
   if (!itemId) return 'Item desconhecido';
@@ -315,7 +307,7 @@ export class FarmSummaryService {
     const buyEventDates = new Set<string>();
     for (const ev of events) {
       if (ev.type === 'buy') {
-        buyEventDates.add(ev.createdAt.toISOString().slice(0, 10));
+        buyEventDates.add(getDailyCycleStart(ev.createdAt).toISOString().slice(0, 10));
       }
     }
     const legacyPurchases = dailyPurchases.filter(

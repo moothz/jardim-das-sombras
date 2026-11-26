@@ -137,6 +137,56 @@ describe('FarmSummaryService (unit)', () => {
     expect(summary.periods.total.topHarvested[0].quantity).toBe(40);
   });
 
+  it('não conta em dobro a compra feita entre 00:00 e 06:00 UTC, que pertence ao ciclo do dia anterior', async () => {
+    const now = new Date('2026-11-26T04:00:00Z');
+    const boughtAt = new Date('2026-11-26T02:00:00Z');
+    const mockPrisma = {
+      player: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: PLAYER_A,
+          uuid: 'uuid-test',
+          farmName: 'Cripta Teste',
+          playerName: 'Tester',
+          coins: 850,
+          createdAt: new Date('2026-10-01T00:00:00Z'),
+          lastDailyAt: null,
+          totalPlanted: 0,
+          totalHarvested: 0,
+          totalWithered: 0,
+          slots: [],
+          decorations: [],
+          inventory: [{ itemId: '01_nightshade', quantity: 3 }],
+          buffs: [],
+        }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue({
+          coins: 850,
+          createdAt: new Date('2026-10-01T00:00:00Z'),
+          totalPlanted: 0,
+          totalHarvested: 0,
+          totalWithered: 0,
+        }),
+      },
+      playerBuff: { findMany: vi.fn().mockResolvedValue([]) },
+      farmEvent: {
+        findMany: vi.fn().mockResolvedValue([
+          { type: 'buy', itemId: '01_nightshade', quantity: 3, coinsDelta: -150, createdAt: boughtAt },
+        ]),
+      },
+      dailyPurchase: {
+        findMany: vi.fn().mockResolvedValue([
+          { itemId: '01_nightshade', quantity: 3, date: new Date('2026-11-25T00:00:00Z') },
+        ]),
+      },
+      cropHarvestTotal: { findMany: vi.fn().mockResolvedValue([]) },
+    } as any;
+
+    const summary = await new FarmSummaryService(mockPrisma).getPlayerSummary(PLAYER_A, now);
+
+    expect(summary.periods.today.seedsBought).toBe(3);
+    expect(summary.periods.d7.seedsBought).toBe(3);
+    expect(summary.periods.total.seedsBought).toBe(3);
+  });
+
   it('renderiza a aba Resumo e controles de período na interface web da fazenda', () => {
     const html = renderAdminFarmHtml({
       status: {
@@ -187,6 +237,7 @@ describe.skipIf(!DB_URL)('GET /farm/:user_id/summary (Postgres)', () => {
   const exporter = new InMemorySpanExporter();
 
   beforeAll(async () => {
+    (globalThis as Record<string, unknown>).__OTEL_ENABLED = true;
     if (UNSAFE_DB) throw new Error(`JDS_TEST_DATABASE_URL recusada: ${UNSAFE_DB}.`);
     const url = new URL(DB_URL!);
     url.searchParams.set('schema', SCHEMA);
@@ -201,6 +252,7 @@ describe.skipIf(!DB_URL)('GET /farm/:user_id/summary (Postgres)', () => {
   }, 60_000);
 
   afterAll(async () => {
+    (globalThis as Record<string, unknown>).__OTEL_ENABLED = false;
     if (!app) return;
     await app.prisma.$executeRawUnsafe(`DROP SCHEMA "${SCHEMA}" CASCADE`);
     await app.close();
