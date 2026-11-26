@@ -233,6 +233,17 @@ export class ShopService {
         update: { quantity: { increment: quantity } },
       });
 
+      await tx.farmEvent.create({
+        data: {
+          playerId,
+          type: 'buy',
+          itemId: item.id,
+          quantity,
+          coinsDelta: -totalCost,
+          source: 'shop',
+        },
+      });
+
       return {
         success: true,
         itemIndex: item.index,

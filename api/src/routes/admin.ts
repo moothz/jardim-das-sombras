@@ -49,13 +49,27 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         let updatedInventory = null;
+        let realItemId: string | null = null;
         if (itemId) {
-          const realId = resolveRealItemId(itemId);
+          realItemId = resolveRealItemId(itemId);
 
           updatedInventory = await tx.inventory.upsert({
-            where: { playerId_itemId: { playerId: userId, itemId: realId } },
-            create: { playerId: userId, itemId: realId, quantity: amount },
+            where: { playerId_itemId: { playerId: userId, itemId: realItemId } },
+            create: { playerId: userId, itemId: realItemId, quantity: amount },
             update: { quantity: { increment: amount } },
+          });
+        }
+
+        if (coins !== 0 || realItemId) {
+          await tx.farmEvent.create({
+            data: {
+              playerId: userId,
+              type: 'admin_give',
+              itemId: realItemId,
+              quantity: realItemId ? amount : 0,
+              coinsDelta: coins,
+              source: reason,
+            },
           });
         }
 
@@ -266,6 +280,30 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
           }
         }
 
+        const transferEvents: Array<{
+          playerId: string;
+          type: string;
+          itemId: string | null;
+          quantity: number;
+          coinsDelta: number;
+          source: string;
+        }> = [];
+        if (coinsTransferred > 0) {
+          transferEvents.push(
+            { playerId: fromUserId, type: 'transfer_out', itemId: null, quantity: 0, coinsDelta: -coinsTransferred, source: 'classifieds' },
+            { playerId: toUserId, type: 'transfer_in', itemId: null, quantity: 0, coinsDelta: coinsTransferred, source: 'classifieds' }
+          );
+        }
+        for (const tr of transferred) {
+          transferEvents.push(
+            { playerId: fromUserId, type: 'transfer_out', itemId: tr.itemId, quantity: tr.amount, coinsDelta: 0, source: 'classifieds' },
+            { playerId: toUserId, type: 'transfer_in', itemId: tr.itemId, quantity: tr.amount, coinsDelta: 0, source: 'classifieds' }
+          );
+        }
+        if (transferEvents.length > 0) {
+          await tx.farmEvent.createMany({ data: transferEvents });
+        }
+
         return { transferred, coinsTransferred };
       }));
 
@@ -304,8 +342,8 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
           itemsToDistribute.push({ itemId, amount });
         }
 
+        const players = await tx.player.findMany({ select: { id: true } });
         if (itemsToDistribute.length > 0) {
-          const players = await tx.player.findMany({ select: { id: true } });
           playersAffected = players.length;
           for (const it of itemsToDistribute) {
             const realId = resolveRealItemId(it.itemId);
@@ -318,6 +356,29 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
               });
             }
           }
+        }
+
+        const giveAllEvents: Array<{
+          playerId: string;
+          type: string;
+          itemId: string | null;
+          quantity: number;
+          coinsDelta: number;
+          source: string;
+        }> = [];
+        if (coins !== 0) {
+          for (const p of players) {
+            giveAllEvents.push({ playerId: p.id, type: 'give_all', itemId: null, quantity: 0, coinsDelta: coins, source: reason });
+          }
+        }
+        for (const it of itemsToDistribute) {
+          const realId = resolveRealItemId(it.itemId);
+          for (const p of players) {
+            giveAllEvents.push({ playerId: p.id, type: 'give_all', itemId: realId, quantity: it.amount, coinsDelta: 0, source: reason });
+          }
+        }
+        if (giveAllEvents.length > 0) {
+          await tx.farmEvent.createMany({ data: giveAllEvents });
         }
 
         return { playersAffected, coins, itemsCount: itemsToDistribute.length, reason };
