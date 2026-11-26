@@ -1,5 +1,6 @@
 import crypto from 'crypto';
-import { config } from '../config.js';
+import { config, isExampleKeyInProduction } from '../config.js';
+import { DomainError } from '../errors/DomainError.js';
 
 export interface AdminTokenPayload {
   userId: string;
@@ -10,6 +11,9 @@ export interface AdminTokenPayload {
  * Generates an HMAC-signed admin token valid for 3 days by default (259200s).
  */
 export function generateAdminToken(userId: string, expiresInSeconds: number = 259200): { token: string; expiresAt: number } {
+  if (isExampleKeyInProduction()) {
+    throw new DomainError('Links de administração indisponíveis: a API_KEY do Jardim precisa ser configurada.', 'UNAUTHORIZED', 401);
+  }
   const expiresAt = Math.floor(Date.now() / 1000) + expiresInSeconds;
   const data = `${userId}.${expiresAt}`;
   const hmac = crypto.createHmac('sha256', config.API_KEY).update(data).digest('hex');
@@ -23,7 +27,7 @@ export function generateAdminToken(userId: string, expiresInSeconds: number = 25
  * Verifies an HMAC-signed admin token.
  */
 export function verifyAdminToken(token: string): { valid: boolean; userId?: string; expiresAt?: number } {
-  if (!token || typeof token !== 'string') return { valid: false };
+  if (!token || typeof token !== 'string' || isExampleKeyInProduction()) return { valid: false };
   const parts = token.split('.');
   if (parts.length !== 3) return { valid: false };
 

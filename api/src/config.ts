@@ -43,17 +43,23 @@ export const config = configSchema.parse({
 
 export type Config = z.infer<typeof configSchema>;
 
+type ApiKeyConfig = { NODE_ENV: string; API_KEY: string };
+
+export function isExampleKeyInProduction(cfg: ApiKeyConfig = config): boolean {
+  return cfg.NODE_ENV === 'production' && cfg.API_KEY === DEFAULT_API_KEY;
+}
+
 /**
  * Aviso de subida quando a API_KEY de produção é a chave de exemplo (pública no repositório) ou está vazia.
- * Só avisa: não impede a subida, porque a ravena em produção depende do serviço. Devolve null se está tudo certo.
+ * Não impede a subida, mas nos dois casos as chamadas do bot e da ravena são recusadas. Devolve null se está tudo certo.
  */
-export function apiKeyStartupWarning(cfg: { NODE_ENV: string; API_KEY: string } = config): string | null {
+export function apiKeyStartupWarning(cfg: ApiKeyConfig = config): string | null {
   if (cfg.NODE_ENV !== 'production') return null;
-  if (cfg.API_KEY === DEFAULT_API_KEY) {
+  if (isExampleKeyInProduction(cfg)) {
     return (
-      'API_KEY de produção é a chave de exemplo do repositório (pública): qualquer um pode chamar as rotas do bot ' +
-      'e assinar links de administração da fazenda. Gere outra (ex.: openssl rand -hex 32), troque no .env do Jardim ' +
-      'e na JARDIM_API_KEY da ravena-ai, e recrie o container.'
+      'API_KEY de produção é a chave de exemplo do repositório (pública): as chamadas do bot e da ravena-ai estão ' +
+      'sendo recusadas (401) e os links de administração da fazenda estão desligados. Gere uma chave (ex.: ' +
+      'openssl rand -hex 32), defina API_KEY no .env do Jardim e a mesma em JARDIM_API_KEY na ravena-ai, e recrie os containers.'
     );
   }
   if (!cfg.API_KEY.trim()) {

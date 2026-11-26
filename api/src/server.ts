@@ -138,7 +138,7 @@ export async function start() {
   await CanvasRendererService.init();
 
   const app = await buildServer();
-  // Chave de exemplo ou vazia em produção: aviso alto, mas sobe mesmo assim (a ravena depende do serviço).
+  // Chave de exemplo ou vazia em produção: sobe mesmo assim, mas as chamadas do bot e da ravena recebem 401 até trocar a API_KEY.
   const keyWarning = apiKeyStartupWarning();
   if (keyWarning) {
     const bar = '!'.repeat(100);

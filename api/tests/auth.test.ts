@@ -4,8 +4,9 @@ import Fastify, { FastifyInstance } from 'fastify';
 const API_KEY = 'chave-de-teste-auth-0123456789';
 process.env.API_KEY = API_KEY;
 
-const { isValidApiKey, requireBotApiKey } = await import('../src/plugins/auth.js');
-const { apiKeyStartupWarning, DEFAULT_API_KEY } = await import('../src/config.js');
+const { isValidApiKey, requireBotApiKey, requireAuth } = await import('../src/plugins/auth.js');
+const { apiKeyStartupWarning, DEFAULT_API_KEY, config } = await import('../src/config.js');
+const { generateAdminToken, verifyAdminToken } = await import('../src/utils/token.js');
 
 describe('isValidApiKey (comparação em tempo constante)', () => {
   it('aceita só a chave exata', () => {
@@ -23,6 +24,11 @@ describe('isValidApiKey (comparação em tempo constante)', () => {
   it('API_KEY vazia não autentica ninguém', () => {
     expect(isValidApiKey('', '')).toBe(false);
     expect(isValidApiKey('qualquer', '')).toBe(false);
+  });
+  it('recusa a chave de exemplo em produção e aceita fora de produção', () => {
+    expect(isValidApiKey(DEFAULT_API_KEY, DEFAULT_API_KEY, 'production')).toBe(false);
+    expect(isValidApiKey(DEFAULT_API_KEY, DEFAULT_API_KEY, 'development')).toBe(true);
+    expect(isValidApiKey(DEFAULT_API_KEY, DEFAULT_API_KEY, 'test')).toBe(true);
   });
 });
 
@@ -60,5 +66,50 @@ describe('apiKeyStartupWarning', () => {
     expect(apiKeyStartupWarning({ NODE_ENV: 'production', API_KEY: 'outra-chave-forte' })).toBeNull();
     expect(apiKeyStartupWarning({ NODE_ENV: 'development', API_KEY: DEFAULT_API_KEY })).toBeNull();
     expect(apiKeyStartupWarning({ NODE_ENV: 'test', API_KEY: '' })).toBeNull();
+  });
+});
+
+describe('chave de exemplo em produção (config real, sem parâmetros)', () => {
+  let app: FastifyInstance;
+  const original = { NODE_ENV: config.NODE_ENV, API_KEY: config.API_KEY };
+  let exampleSignedToken: string;
+
+  beforeAll(async () => {
+    config.API_KEY = DEFAULT_API_KEY;
+    exampleSignedToken = generateAdminToken('jogador-teste').token;
+    config.NODE_ENV = 'production';
+    app = Fastify();
+    app.setErrorHandler((err: any, _req, reply) => reply.status(err.statusCode || 500).send({ code: err.code }));
+    app.get('/bot', { preHandler: [requireBotApiKey] }, async () => ({ ok: true }));
+    app.get('/farm/:user_id', { preHandler: [requireAuth] }, async () => ({ ok: true }));
+    await app.ready();
+  });
+  afterAll(async () => {
+    await app.close();
+    Object.assign(config, original);
+  });
+
+  it('rota do bot responde 401 com a chave de exemplo no x-api-key ou no Bearer', async () => {
+    const bot = (headers: Record<string, string>) => app.inject({ method: 'GET', url: '/bot', headers });
+    expect((await bot({ 'x-api-key': DEFAULT_API_KEY })).statusCode).toBe(401);
+    expect((await bot({ authorization: `Bearer ${DEFAULT_API_KEY}` })).statusCode).toBe(401);
+  });
+  it('link de administração assinado com a chave de exemplo é recusado', async () => {
+    expect(verifyAdminToken(exampleSignedToken).valid).toBe(false);
+    const res = await app.inject({ method: 'GET', url: `/farm/jogador-teste?token=${exampleSignedToken}` });
+    expect(res.statusCode).toBe(401);
+    expect(res.json().code).toBe('TOKEN_EXPIRED');
+  });
+  it('não gera link de administração', () => {
+    expect(() => generateAdminToken('jogador-teste')).toThrow(expect.objectContaining({ code: 'UNAUTHORIZED', statusCode: 401 }));
+  });
+  it('com chave própria em produção, o link volta a valer', () => {
+    config.API_KEY = 'outra-chave-forte-de-producao';
+    try {
+      const { token } = generateAdminToken('jogador-teste');
+      expect(verifyAdminToken(token)).toMatchObject({ valid: true, userId: 'jogador-teste' });
+    } finally {
+      config.API_KEY = DEFAULT_API_KEY;
+    }
   });
 });
