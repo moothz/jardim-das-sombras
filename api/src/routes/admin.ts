@@ -2,6 +2,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { requireBotApiKey } from '../plugins/auth.js';
 import { findPlant, findDecoration, findConsumable, resolveRealItemId } from '../utils/catalog.js';
 import { DomainError } from '../errors/DomainError.js';
+import { withSpan, setAttrs, userIdAttr } from '../telemetry.js';
 
 export const adminRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /admin/give
@@ -134,7 +135,17 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         throw new DomainError('fromUserId, toUserId e ao menos um item ou quantia de petalitas são obrigatórios', 'INVALID_PAYLOAD', 400);
       }
 
-      const result = await fastify.prisma.$transaction(async (tx) => {
+      const result = await withSpan(
+        'admin transfer',
+        {
+          attributes: {
+            'jds.from_user.id': userIdAttr(fromUserId),
+            'jds.to_user.id': userIdAttr(toUserId),
+            'jds.transfer.coins': coinAmount,
+            'jds.transfer.items': hasItems ? items.length : 0,
+          },
+        },
+        (transferSpan) => fastify.prisma.$transaction(async (tx) => {
         // Garantir que o destinatário existe como player
         let receiver = await tx.player.findUnique({ where: { id: toUserId } });
         if (!receiver) {
@@ -155,19 +166,26 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         // 1. Validação e transferência de Petalitas (coins)
         let coinsTransferred = 0;
         if (hasCoins) {
-          const sender = await tx.player.findUnique({ where: { id: fromUserId } });
-          if (!sender || sender.coins < coinAmount) {
-            throw new DomainError(
-              `Petalitas insuficientes para ${fromUserId}. Possui: ${sender?.coins || 0}, Requerido: ${coinAmount}`,
+          const insufficientCoins = (coins: number | undefined) =>
+            new DomainError(
+              `Petalitas insuficientes para ${fromUserId}. Possui: ${coins || 0}, Requerido: ${coinAmount}`,
               'INSUFFICIENT_COINS',
               400
             );
+          const sender = await tx.player.findUnique({ where: { id: fromUserId } });
+          if (!sender || sender.coins < coinAmount) {
+            throw insufficientCoins(sender?.coins);
           }
 
-          await tx.player.update({
-            where: { id: fromUserId },
+          const { count } = await tx.player.updateMany({
+            where: { id: fromUserId, coins: { gte: coinAmount } },
             data: { coins: { decrement: coinAmount } },
           });
+          if (count === 0) {
+            setAttrs({ 'jds.tx.conflict': true }, transferSpan);
+            const latest = await tx.player.findUnique({ where: { id: fromUserId } });
+            throw insufficientCoins(latest?.coins);
+          }
 
           await tx.player.update({
             where: { id: toUserId },
@@ -249,7 +267,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         return { transferred, coinsTransferred };
-      });
+      }));
 
       return reply.send({ success: true, ...result });
     }

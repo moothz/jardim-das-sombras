@@ -49,6 +49,10 @@ GIT_SHA=$(git rev-parse --short HEAD) docker compose build api && docker compose
   negócio (`farm plant`...), nunca no `request`/`handler - *` (senão cada rejeição contava 3x no painel de rejeições).
   OK (e não UNSET) no `request` porque ele é INTERNAL e carrega `http.response.status_code`: com UNSET o Jaeger v2
   infere ERROR para span não-SERVER com status ≥ 400.
+- Erro inesperado (status ≥ 500): o tratador de erro (`api/src/plugins/errorHandler.ts`, definido antes das rotas)
+  grava o log, chama `recordError` no span ativo (`error.type` + exceção) e responde 500 com corpo genérico
+  (`code: INTERNAL_ERROR`, sem a mensagem original). Erros < 500 (`DomainError`, JSON inválido, 429) seguem o
+  formato padrão do Fastify (`statusCode`, `code`, `error`, `message`).
 - Instrumentações: HTTP (server/client), undici (`fetch`), `@fastify/otel` (rotas com `http.route`; só o hook
   `preHandler` vira span), pino (`trace_id`/`span_id` nos logs JSON do Fastify), runtime do Node (event loop, heap, GC).
 - Prisma: spans manuais `prisma {Model}.{operação}` (CLIENT) via `$extends`. O `@prisma/instrumentation` 5.22
@@ -86,21 +90,25 @@ nunca é gravada (pode conter texto do usuário, ex. `Planta desconhecida: "<tex
 | `farm render` | `jds.render.kind` = farm/share/badge, `jds.render.cache` = hit/miss, `jds.render.format` = jpeg/png, `jds.render.bytes`, `jds.render.draw_ms`, `jds.render.encode_ms` |
 | `canvas draw` | filho de `farm render` (só em miss): composição no canvas |
 | `canvas encode` | filho de `farm render` (só em miss): `toBuffer`, `jds.render.format`, `jds.render.bytes` |
-| `farm plant` | `jds.plant.random`, `jds.plant.count`, `jds.plant.id` (ID do catálogo); `witherMultiplier` sem a API_KEY vira `app.outcome=rejected` com `app.reject.reason=forbidden`, e fora do alcance de uma data, `invalid_payload` |
-| `farm harvest` | `jds.harvest.all`, `jds.harvest.items`, `jds.harvest.plant_types`, `jds.harvest.withered_cleared`, `jds.harvest.coins`, `jds.notify.attempted` (houve POST) ou `jds.notify.sent=false` + `jds.notify.skip_reason` (empty/disabled/no_key) |
+| `farm plant` | `jds.plant.random`, `jds.plant.count`, `jds.plant.id` (ID do catálogo); `witherMultiplier` sem a API_KEY vira `app.outcome=rejected` com `app.reject.reason=forbidden`, e fora do alcance de uma data, `invalid_payload`; `jds.tx.conflict=true` quando outra requisição ocupou o canteiro entre a leitura e a gravação (vira `slot_occupied`) |
+| `farm harvest` | `jds.tx.conflict=true` quando outra requisição colheu algum dos canteiros lidos (só os canteiros conquistados pagam), `jds.harvest.all`, `jds.harvest.items`, `jds.harvest.plant_types`, `jds.harvest.withered_cleared`, `jds.harvest.coins`, `jds.notify.attempted` (houve POST) ou `jds.notify.sent=false` + `jds.notify.skip_reason` (empty/disabled/no_key) |
 | `farm plant tx` | transação do plantio (inclui BEGIN/COMMIT): `jds.plant.count`; filhos `farm plant tx.begin`/`.write`/`.commit` |
-| `farm harvest tx` | transação interativa do Prisma (inclui BEGIN/COMMIT): `jds.harvest.slots_reset`, `jds.harvest.plant_types`; filhos `farm harvest tx.begin` (BEGIN), `.write` (corpo, com os `prisma *`) e `.commit` (COMMIT) — helper `withTxSpans` |
+| `farm harvest tx` | transação interativa do Prisma (inclui BEGIN/COMMIT): `jds.harvest.slots_reset` (lidos na abertura; trocado pelos conquistados ao fim), `jds.harvest.plant_types`; filhos `farm harvest tx.begin` (BEGIN), `.write` (corpo, com os `prisma *`) e `.commit` (COMMIT) — helper `withTxSpans` |
 | `notify harvest` | `jds.notify.status_code`, `jds.notify.sent` (true só em 2xx), `app.outcome` (ok / rejected em 4xx / error em 5xx ou falha de rede, com `error.type`), `jds.notify.plant_types`, `server.address` |
-| `farm daily` | `jds.daily.coins`, `jds.daily.items` |
+| `farm daily` | `jds.daily.coins`, `jds.daily.items`; `jds.tx.conflict=true` quando outra requisição resgatou a sacola entre a leitura e a gravação (vira `daily_already_claimed`) |
+| `farm daily tx` | transação do resgate da sacola; filhos `farm daily tx.begin`/`.write`/`.commit` |
 | `farm sell` | `jds.sell.all`, `jds.sell.items`, `jds.sell.coins`; `quantity` inválido vira `app.outcome=rejected` com `app.reject.reason=invalid_quantity` |
 | `farm use` | — |
 | `farm decorate` | `jds.decorate.op` = equip/unequip/batch, `jds.decorate.count` |
 | `farm rename` | — (o nome nunca vai para o span); `farmName` que não é texto nem `null` vira `app.outcome=rejected` com `app.reject.reason=invalid_payload` |
 | `shop buy` | `jds.shop.quantity`, `jds.shop.item_id`, `jds.shop.cost` |
+| `shop buy` | `jds.shop.quantity`, `jds.shop.item_id`, `jds.shop.cost`; `jds.tx.conflict=true` quando outra compra gastou o saldo ou o limite diário entre a leitura e a gravação (vira `insufficient_coins` ou `player_limit_exceeded`) |
+| `shop buy tx` | transação da compra; filhos `shop buy tx.begin`/`.write`/`.commit` |
 | `inventory get` | `jds.inventory.found`, `jds.inventory.items` |
 | `economy summary` | `GET /internal/economy/summary` (painel da economia): `jds.economy.window_ms`, `jds.economy.full_history` (from=0), `jds.economy.balances` (false com `balances=0`), `jds.economy.accounts` e `jds.economy.holders` (ausentes com `balances=0`), `jds.economy.ledger_available` (false: o Jardim ainda não tem extrato). Sem ID de jogador; parâmetro inválido vira `app.outcome=rejected` |
 | `economy players` | `GET /internal/economy/players` (saldo por jogador para o painel): `jds.economy.window_ms`, `jds.economy.players` (quantos jogadores com saldo diferente de zero). Os IDs ficam só na resposta, nunca no span; parâmetro inválido vira `app.outcome=rejected` |
 | `economy params` | `GET /internal/economy/params` (parâmetros de balanceamento para o painel): `jds.economy.params` (quantos parâmetros a rota devolveu). Sem ID de jogador |
+| `admin transfer` | `POST /admin/transfer`: `jds.from_user.id`, `jds.to_user.id`, `jds.transfer.coins`, `jds.transfer.items` (quantos itens no pedido); recusa vira `app.outcome=rejected`; `jds.tx.conflict=true` quando outra transferência gastou o saldo do remetente entre a leitura e a gravação (vira `insufficient_coins`) |
 | `prisma {Model}.{op}` | `db.system.name`, `db.operation.name`, `db.collection.name` |
 
 Todos os spans de negócio e os spans SERVER das rotas por usuário têm `jds.user.id`.
@@ -125,8 +133,5 @@ Todos os spans de negócio e os spans SERVER das rotas por usuário têm `jds.us
   intervalo de microssegundos (fila com 512 spans), um `handler - *` poderia sair ainda como ERROR.
 - Em 4xx do `@fastify/otel` sem `DomainError` (ex.: 404 de rota, JSON inválido), o código vem do `exception.type`
   (ex. `fst_err_ctp_invalid_json_body`).
-- O `setErrorHandler` do `server.ts` é definido depois do registro dos plugins de rota, então hoje ele não é
-  aplicado a essas rotas (comportamento já existente, não alterado). 5xx nelas aparecem como erro pelos spans
-  HTTP/@fastify/otel.
 - Overhead medido (200 requisições sequenciais, local): rotas baratas (~3 ms) ganham ~0,6–1 ms; o render (~27 ms) ~+1,3 ms.
 - Sem logs via OTLP (só `trace_id` no stdout); sem Loki.

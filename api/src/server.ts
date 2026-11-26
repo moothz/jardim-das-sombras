@@ -6,10 +6,10 @@ import rateLimit from '@fastify/rate-limit';
 import { config, apiKeyStartupWarning } from './config.js';
 import prismaPlugin from './plugins/prisma.js';
 import { isTrustedRequest } from './plugins/auth.js';
-import { DomainError } from './errors/DomainError.js';
+import { errorHandler } from './plugins/errorHandler.js';
 import { CanvasRendererService } from './services/CanvasRendererService.js';
 import { verifyAdminToken } from './utils/token.js';
-import { activeSpan, recordError, tagRequestIds } from './telemetry.js';
+import { tagRequestIds } from './telemetry.js';
 
 import { farmRoutes } from './routes/farm.js';
 import { shopRoutes } from './routes/shop.js';
@@ -26,6 +26,7 @@ export async function buildServer() {
       redact: ['req.headers.authorization', 'req.headers["x-api-key"]'],
     },
   });
+  fastify.setErrorHandler(errorHandler);
 
   // CORS
   await fastify.register(cors, {
@@ -127,25 +128,6 @@ export async function buildServer() {
   await fastify.register(adminRoutes);
   await fastify.register(superAdminRoutes);
   await fastify.register(internalRoutes);
-
-  // Error handling
-  fastify.setErrorHandler((error, request, reply) => {
-    if (error instanceof DomainError) {
-      return reply.status(error.statusCode).send({
-        error: error.message,
-        code: error.code,
-        details: error.details,
-      });
-    }
-
-    request.log.error(error);
-    // 5xx inesperado: marca o span ativo da requisição como erro (DomainError não chega aqui).
-    recordError(activeSpan(), error);
-    return reply.status(500).send({
-      error: 'Erro interno no Jardim das Sombras',
-      code: 'INTERNAL_ERROR',
-    });
-  });
 
   return fastify;
 }
