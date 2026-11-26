@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { config, DEFAULT_API_KEY } from '../config.js';
+import { config, isExampleKeyInProduction } from '../config.js';
 import { DomainError } from '../errors/DomainError.js';
 import { verifyAdminToken } from '../utils/token.js';
 
@@ -18,7 +18,7 @@ export function isValidApiKey(
   nodeEnv: string = config.NODE_ENV,
 ): boolean {
   if (typeof token !== 'string' || !token || !apiKey) return false;
-  if (nodeEnv === 'production' && apiKey === DEFAULT_API_KEY) return false;
+  if (isExampleKeyInProduction({ NODE_ENV: nodeEnv, API_KEY: apiKey })) return false;
   return timingSafeEqual(hashToken(token), hashToken(apiKey));
 }
 

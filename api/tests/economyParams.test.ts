@@ -41,7 +41,7 @@ const SOURCE_FILES = [
 ];
 
 const IGNORED_CONSTANTS: Record<string, string> = {
-  DEFAULT_API_KEY: 'segredo (chave de exemplo, só para o aviso na subida)',
+  DEFAULT_API_KEY: 'segredo (chave de exemplo, recusada em produção)',
 };
 
 /** `const NOME = <número>` sem export, também indentada (dentro de função). */
