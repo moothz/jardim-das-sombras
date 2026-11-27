@@ -43,6 +43,7 @@ export const PLANT_PARAM_FIELDS = [
   'coinReward',
   'bonusType',
   'dailyLimit',
+  'weeklyPlantLimit',
   'dailyBagTier',
 ] as const;
 export const DECORATION_PARAM_FIELDS = ['tier', 'price', 'sellPrice'] as const;

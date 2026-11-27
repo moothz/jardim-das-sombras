@@ -399,6 +399,34 @@ export class FarmService {
 
     const availableSeeds = userInventory.quantity;
     const now = new Date();
+
+    // Limite semanal de plantio por espécie (configurável por planta; Economia = sem limite)
+    let remainingWeekly = Infinity;
+    if (plantDef.weeklyPlantLimit && plantDef.weeklyPlantLimit > 0 && typeof this.prisma.farmEvent?.aggregate === 'function') {
+      const bankingTime = new Date(now.getTime() - 7 * 3600 * 1000);
+      const daysSinceMonday = (bankingTime.getUTCDay() + 6) % 7;
+      const mondayBanking = new Date(bankingTime.getTime() - daysSinceMonday * 86400000);
+      const weekStart = new Date(`${mondayBanking.toISOString().split('T')[0]}T07:00:00.000Z`);
+      const weeklyAgg = await this.prisma.farmEvent.aggregate({
+        _sum: { quantity: true },
+        where: {
+          playerId,
+          type: 'plant',
+          itemId: plantDef.id,
+          createdAt: { gte: weekStart },
+        },
+      });
+      const plantedThisWeek = Number(weeklyAgg?._sum?.quantity || 0);
+      remainingWeekly = plantDef.weeklyPlantLimit - plantedThisWeek;
+      if (remainingWeekly <= 0) {
+        throw new DomainError(
+          `Limite semanal de plantio atingido para ${plantDef.name} (${plantDef.weeklyPlantLimit}/semana). O limite reseta segunda-feira às 04:00!`,
+          'WEEKLY_PLANT_LIMIT_REACHED',
+          400
+        );
+      }
+    }
+
     const buffs = await this.getFarmBuffs(playerId);
     const actualGrowthSeconds = Math.max(10, Math.round(plantDef.growthTimeSeconds * buffs.effectiveGrowthMultiplier));
     const harvestAt = new Date(now.getTime() + actualGrowthSeconds * 1000);
@@ -435,7 +463,7 @@ export class FarmService {
     } else {
       // Pick random available slot(s) for convenience
       const shuffled = [...emptySlots].sort(() => Math.random() - 0.5);
-      const countToPlant = Math.min(requestedAmount, availableSeeds, shuffled.length);
+      const countToPlant = Math.min(requestedAmount, availableSeeds, shuffled.length, remainingWeekly);
       targetSlots = shuffled.slice(0, countToPlant);
     }
 

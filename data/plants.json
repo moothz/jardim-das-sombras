@@ -13,6 +13,7 @@
     "bonusDescription": "Erva simples, barata, difícil de morrer e pouco retorno",
     "spriteBaseName": "01_nightshade",
     "dailyLimit": 10,
+    "weeklyPlantLimit": null,
     "dailyBagTier": "common"
   },
   {
@@ -29,6 +30,7 @@
     "bonusDescription": "Cogumelos delicados, morre fácil, mas dá um bom retorno",
     "spriteBaseName": "02_tomb_shroom",
     "dailyLimit": 10,
+    "weeklyPlantLimit": null,
     "dailyBagTier": "common"
   },
   {
@@ -44,8 +46,8 @@
     "bonusType": "none",
     "bonusDescription": "Planta complexa, bom para cultivos longos com bom retorno",
     "dailyLimit": 10,
-    "dailyBagTier": "common",
-    "spriteBaseName": "03_corpse_lily"
+    "weeklyPlantLimit": null,
+    "dailyBagTier": "common"
   },
   {
     "index": 4,
@@ -60,8 +62,8 @@
     "bonusType": "none",
     "bonusDescription": "Planta rara, delicada, excelente retorno",
     "dailyLimit": 3,
-    "dailyBagTier": "uncommon",
-    "spriteBaseName": "04_black_lotus"
+    "weeklyPlantLimit": null,
+    "dailyBagTier": "uncommon"
   },
   {
     "index": 5,
@@ -76,6 +78,7 @@
     "bonusType": "fishing_buff",
     "bonusDescription": "Concede um item de buff na pesca aleatório",
     "dailyLimit": 10,
+    "weeklyPlantLimit": 30,
     "dailyBagTier": "rare",
     "spriteBaseName": "05_mist_crawler_v2"
   },
@@ -92,6 +95,7 @@
     "bonusType": "fishing_weight_buff",
     "bonusDescription": "Aumenta de 15% a 50% o peso do próximo peixe capturado",
     "dailyLimit": 10,
+    "weeklyPlantLimit": 30,
     "dailyBagTier": "uncommon",
     "spriteBaseName": "06_styx_kelp_v2"
   },
@@ -108,6 +112,7 @@
     "bonusType": "fishing_inventory_boost",
     "bonusDescription": "Concede um item de inventário na pesca aleatório",
     "dailyLimit": 10,
+    "weeklyPlantLimit": 30,
     "dailyBagTier": "epic",
     "spriteBaseName": "07_spectral_gourd_v2"
   },
@@ -124,6 +129,7 @@
     "bonusType": "fishing_baits_5",
     "bonusDescription": "5x Iscas pra !pesca",
     "dailyLimit": 10,
+    "weeklyPlantLimit": 30,
     "dailyBagTier": "uncommon",
     "spriteBaseName": "08_devouring_root_v2"
   },
@@ -140,6 +146,7 @@
     "bonusType": "casino_standard_chips",
     "bonusDescription": "5x Fichas de Ouro para !slots",
     "dailyLimit": 10,
+    "weeklyPlantLimit": 30,
     "dailyBagTier": "uncommon",
     "spriteBaseName": "09_obsidian_clover"
   },
@@ -156,6 +163,7 @@
     "bonusType": "casino_gold_chips",
     "bonusDescription": "25x Fichas de Ouro para !slots",
     "dailyLimit": 10,
+    "weeklyPlantLimit": 30,
     "dailyBagTier": "rare",
     "spriteBaseName": "10_golden_clover"
   },
@@ -172,6 +180,7 @@
     "bonusType": "waifu_rolls",
     "bonusDescription": "Ticket de Waifu, aumentando a chance de sortear uma rara",
     "dailyLimit": 10,
+    "weeklyPlantLimit": 30,
     "dailyBagTier": "rare",
     "spriteBaseName": "11_purple_heart"
   },
@@ -188,6 +197,7 @@
     "bonusType": "waifu_premium_ticket",
     "bonusDescription": "2 Ticket de Waifu, aumentando a chance de sortear uma rara",
     "dailyLimit": 3,
+    "weeklyPlantLimit": 30,
     "dailyBagTier": "epic",
     "spriteBaseName": "12_blood_rose"
   }

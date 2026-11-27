@@ -17,6 +17,8 @@ export interface PlantDefinition {
   spriteBaseName: string;
   /** Limite de compra por dia na loja (padrão 10) */
   dailyLimit?: number;
+  /** Limite semanal de plantio por espécie (null/0 = sem limite) */
+  weeklyPlantLimit?: number | null;
   /** Pool da sacola diária: common (garantida), uncommon, rare, epic. null/false/'none' = nunca cai na sacola */
   dailyBagTier?: 'common' | 'uncommon' | 'rare' | 'epic' | 'none' | null | false;
 }

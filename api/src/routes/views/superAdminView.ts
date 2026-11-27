@@ -64,6 +64,7 @@ export const SUPER_ADMIN_HTML = `<!DOCTYPE html>
       <div><label>Tipo de bônus</label><input id="pl-bonusType" value="coins"></div>
       <div><label>Descrição do bônus</label><input id="pl-bonusDescription"></div>
       <div><label>Limite de compra/dia</label><input id="pl-dailyLimit" type="number" value="10"></div>
+      <div><label>Limite plantio/semana (0 = ilimitado)</label><input id="pl-weeklyPlantLimit" type="number" min="0" value="30"></div>
       <div><label>Sacola diária (tier)</label><select id="pl-dailyBagTier"><option value="none">Nunca cai na sacola</option><option value="common">common (garantida, 3x)</option><option value="uncommon">uncommon (20%)</option><option value="rare">rare (10%)</option><option value="epic">epic (3%)</option></select></div>
     </div>
     <div class="grid">
@@ -169,26 +170,29 @@ function fileToB64(id) {
 function v(id) { return document.getElementById(id).value; }
 function setv(id, val) { document.getElementById(id).value = val == null ? '' : val; }
 
-var PLANT_FIELDS = ['id', 'name', 'category', 'seedPrice', 'sellPrice', 'growthTimeSeconds', 'witherTimeSeconds', 'coinReward', 'bonusType', 'bonusDescription', 'dailyLimit', 'dailyBagTier'];
+var PLANT_FIELDS = ['id', 'name', 'category', 'seedPrice', 'sellPrice', 'growthTimeSeconds', 'witherTimeSeconds', 'coinReward', 'bonusType', 'bonusDescription', 'dailyLimit', 'weeklyPlantLimit', 'dailyBagTier'];
 
 function renderPlants() {
-  var h = '<tr><th></th><th>#</th><th>ID</th><th>Nome</th><th>Cat.</th><th>Semente</th><th>Venda</th><th>Cresce (s)</th><th>Sacola</th></tr>';
+  var h = '<tr><th></th><th>#</th><th>ID</th><th>Nome</th><th>Cat.</th><th>Semente</th><th>Venda</th><th>Cresce (s)</th><th>Lim/Sem</th><th>Sacola</th></tr>';
   DATA.plants.forEach(function (p) {
-    h += '<tr class="row" onclick="editPlant(\\'' + p.id + '\\')"><td><img class="th" src="/farm/sprites/plants/' + p.spriteBaseName + '_ready.png?t=' + Date.now() + '"></td><td>' + p.index + '</td><td>' + p.id + '</td><td>' + p.name + '</td><td>' + p.category + '</td><td>' + p.seedPrice + '</td><td>' + p.sellPrice + '</td><td>' + p.growthTimeSeconds + '</td><td>' + (p.dailyBagTier || '-') + '</td></tr>';
+    h += '<tr class="row" onclick="editPlant(\\'' + p.id + '\\')"><td><img class="th" src="/farm/sprites/plants/' + p.spriteBaseName + '_ready.png?t=' + Date.now() + '"></td><td>' + p.index + '</td><td>' + p.id + '</td><td>' + p.name + '</td><td>' + p.category + '</td><td>' + p.seedPrice + '</td><td>' + p.sellPrice + '</td><td>' + p.growthTimeSeconds + '</td><td>' + (p.weeklyPlantLimit > 0 ? p.weeklyPlantLimit : '∞') + '</td><td>' + (p.dailyBagTier || '-') + '</td></tr>';
   });
   document.getElementById('plants-table').innerHTML = h;
 }
 
 function editPlant(id) {
   var p = DATA.plants.filter(function (x) { return x.id === id; })[0];
-  PLANT_FIELDS.forEach(function (f) { setv('pl-' + f, f === 'dailyBagTier' ? (p[f] || 'none') : (f === 'dailyLimit' ? (p[f] || 10) : p[f])); });
+  PLANT_FIELDS.forEach(function (f) {
+    setv('pl-' + f, f === 'dailyBagTier' ? (p[f] || 'none') : (f === 'dailyLimit' ? (p[f] || 10) : (f === 'weeklyPlantLimit' ? (p[f] || 0) : p[f])));
+  });
   document.getElementById('pl-id').readOnly = true;
   document.getElementById('plant-form-title').textContent = 'Editando: ' + p.name;
   window.scrollTo(0, document.body.scrollHeight);
 }
 
 function clearPlantForm() {
-  PLANT_FIELDS.forEach(function (f) { if (f !== 'category' && f !== 'bonusType' && f !== 'dailyLimit' && f !== 'dailyBagTier') setv('pl-' + f, ''); });
+  PLANT_FIELDS.forEach(function (f) { if (f !== 'category' && f !== 'bonusType' && f !== 'dailyLimit' && f !== 'weeklyPlantLimit' && f !== 'dailyBagTier') setv('pl-' + f, ''); });
+  setv('pl-weeklyPlantLimit', 30);
   ['pl-seed', 'pl-growing', 'pl-ready'].forEach(function (i) { setv(i, ''); });
   document.getElementById('pl-id').readOnly = false;
   document.getElementById('plant-form-title').textContent = 'Nova planta';

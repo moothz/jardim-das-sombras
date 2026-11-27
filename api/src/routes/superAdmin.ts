@@ -194,6 +194,10 @@ export async function superAdminRoutes(fastify: FastifyInstance) {
             bonusType: String(b.bonusType || 'coins'),
             bonusDescription: String(b.bonusDescription || ''),
             dailyLimit: b.dailyLimit === '' || b.dailyLimit == null ? 10 : num(b.dailyLimit, 'dailyLimit'),
+            weeklyPlantLimit:
+              b.weeklyPlantLimit === '' || b.weeklyPlantLimit == null || Number(b.weeklyPlantLimit) <= 0
+                ? null
+                : num(b.weeklyPlantLimit, 'weeklyPlantLimit'),
             dailyBagTier: ['common', 'uncommon', 'rare', 'epic'].includes(b.dailyBagTier) ? b.dailyBagTier : null,
             spriteBaseName: existing?.spriteBaseName || id,
           };
